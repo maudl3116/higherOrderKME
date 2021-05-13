@@ -276,14 +276,14 @@ class BallEngine(Engine):
             fig.set_size_inches(1.5, 1.5)
 
             if draw_edge:
-                # draw force
-                for x in range(n_ball):
-                    F = actions[i, x]
+                # # draw force
+                # for x in range(n_ball):
+                #     F = actions[i, x]
 
-                    normF = norm(F)
-                    Fx = F / normF * normF * 0.05
-                    st = states[i, x, :2] + F / normF * 12.
-                    ax.arrow(st[0], st[1], Fx[0], Fx[1], fc='Orange', ec='Orange', width=3., head_width=15., head_length=15.)
+                #     normF = norm(F)
+                #     Fx = F / normF * normF * 0.05
+                #     st = states[i, x, :2] + F / normF * 12.
+                #     ax.arrow(st[0], st[1], Fx[0], Fx[1], fc='Orange', ec='Orange', width=3., head_width=15., head_length=15.)
 
                 # draw edge
                 cnt = 0

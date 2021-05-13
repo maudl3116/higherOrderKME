@@ -2,9 +2,9 @@
 python dataset.py \
 --env Ball \
 --stage dy \
---n_rollout 50 \
+--n_rollout 1 \
 --n_ball 5 \
---time_step 20 \
+--time_step 200 \
 --node_attr_dim 0 \
 --edge_attr_dim 1 \
 --edge_type_num 3 \
@@ -14,3 +14,7 @@ python dataset.py \
 --num_workers 1 \
 --rel_type 1 \
 --rel_attr 30 \
+--dataf 'example' \
+--video 1 \
+--image 1 \
+--draw_edge 1

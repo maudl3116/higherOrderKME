@@ -91,7 +91,7 @@ def default_loader(path):
 def gen_Ball(info):
     thread_idx, data_dir, data_names = info['thread_idx'], info['data_dir'], info['data_names']
     n_rollout, time_step = info['n_rollout'], info['time_step']
-    dt, video, args, phase = info['dt'], info['video'], info['args'], info['phase']
+    dt, video, image, draw_edge, args, phase = info['dt'], info['video'], info['image'], info['draw_edge'], info['args'], info['phase']
     n_ball = info['n_ball']
 
     np.random.seed(round(time.time() * 1000 + thread_idx) % 2 ** 32)
@@ -142,8 +142,8 @@ def gen_Ball(info):
 
         datas = [attrs_all, states_all, actions_all, rel_attrs_all]
         store_data(data_names, datas, rollout_dir + '.h5')
-        engine.render(states_all, actions_all, engine.get_param(), video=True, image=False,
-                      path=rollout_dir, draw_edge=False, verbose=True)
+        engine.render(states_all, actions_all, engine.get_param(), video=video, image=image,
+                      path=rollout_dir, draw_edge=draw_edge, verbose=True)
 
         datas = [datas[i].astype(np.float64) for i in range(len(datas))]
 
@@ -300,7 +300,9 @@ class PhysicsDataset():
                     'n_rollout': n_rollout // self.args.num_workers,
                     'time_step': time_step,
                     'dt': dt,
-                    'video': False,
+                    'video': self.args.video,
+                    'image': self.args.image,
+                    'draw_edge': self.args.draw_edge,
                     'phase': self.phase,
                     'args': self.args,
                     'vis_height': self.args.height_raw,

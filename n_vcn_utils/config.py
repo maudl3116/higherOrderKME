@@ -32,7 +32,7 @@ parser.add_argument('--crop_size', type=int, default=0)
 
 parser.add_argument('--eval', type=int, default=0)
 
-parser.add_argument('--n_roll', type=int, default=5, help='number of rollout steps for training')
+parser.add_argument('--n_rollout', type=int, default=5, help='number of rollout steps for training')
 
 parser.add_argument('--pstep', type=int, default=2)
 parser.add_argument('--node_attr_dim', type=int, default=0)
@@ -41,6 +41,12 @@ parser.add_argument('--edge_type_num', type=int, default=0)
 parser.add_argument('--edge_st_idx', type=int, default=0, help="whether to exclude the first edge type")
 parser.add_argument('--edge_share', type=int, default=0,
                     help="whether forcing the info being the same for both directions")
+parser.add_argument('--video', type=int, default=0,
+                    help="whether to generate a video")
+parser.add_argument('--image', type=int, default=0,
+                    help="whether to generate images")
+parser.add_argument('--draw_edge', type=int, default=0,
+                    help="whether to draw edges on video, image")
 
 
 '''
@@ -81,9 +87,7 @@ def gen_args():
     if args.env == 'Ball':
         args.data_names = ['attrs', 'states', 'actions', 'rels']
 
-        args.n_rollout = 50
         args.frame_offset = 1
-        args.time_step = 40                   # why make what follows a default?
         args.train_valid_ratio = 0.01
 
         # radius
