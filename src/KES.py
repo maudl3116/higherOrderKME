@@ -15,7 +15,7 @@ import sigkernel
 
 
 
-def model(X, y, order=0, alphas0=[0.5], alphas1=[0.5], lambdas=[0.1], dyadic_order0 = 1, dyadic_order1 = 1, ll=None, at=False, mode='krr', NUM_TRIALS=1, cv=3, grid={}, imbalanced=False):
+def model(X, y, rank=0, alphas0=[0.5], alphas1=[0.5], lambdas=[0.1], dyadic_order0 = 1, dyadic_order1 = 1, ll=None, at=False, mode='krr', NUM_TRIALS=1, cv=3, grid={}, imbalanced=False):
     """Performs a kernel based distribution regression on ensembles (of possibly unequal cardinality)
        of univariate or multivariate time-series (of possibly unequal lengths)
        We use the RBF embedding throughout. 
