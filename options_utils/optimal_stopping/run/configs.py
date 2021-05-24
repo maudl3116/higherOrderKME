@@ -411,6 +411,13 @@ test_table = _SmallDimensionTable(
 
 
 #### CondSigKME
+hurst = list(np.linspace(0, 1, 51))
+hurst[0] = 0.01
+hurst[-1] = 0.999
+factors0 = []
+for a in [0.0001]:
+    for b in [0.3]:
+        factors0 += [[a,b]]
 
 config1_prices = _DefaultConfig(
     payoffs=['Identity'], nb_stocks=[5], spots=[0], nb_epochs=[30],
