@@ -1,10 +1,5 @@
 import setuptools
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
-
-
-
 setuptools.setup(
     name="optimal_stopping",
     version="0.0.1",
@@ -12,7 +7,6 @@ setuptools.setup(
     author_email="calypso.herrera@math.ethz.ch, florian.krach@me.com",
     description="Code used to run experiments for paper 'Optimal Stopping via "
                 "Randomized Neural Networks'.",
-    long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/HeKrRuTe/OptStopRandNN",
     packages=setuptools.find_packages(),
