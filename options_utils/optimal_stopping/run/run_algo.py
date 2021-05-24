@@ -135,8 +135,12 @@ def init_seed():
 
 
 def _run_algos():
+  name_config = ""
+  for config_name, config in configs_getter.get_configs():  
+      name_config = config_name 
+
   fpath = os.path.join(os.path.dirname(__file__), "../../output/metrics_draft",
-                       f'{int(time.time()*1000)}.csv')
+                       f'{name_config}.csv')
   tmp_dirpath = f'{fpath}.tmp_results'
   os.makedirs(tmp_dirpath, exist_ok=True)
   atexit.register(shutil.rmtree, tmp_dirpath)

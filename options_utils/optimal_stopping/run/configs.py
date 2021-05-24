@@ -171,46 +171,44 @@ Test for the FBM case of DOS
 hurst = list(np.linspace(0, 1, 21))
 hurst[0] = 0.01
 hurst[-1] = 0.999
-# hurst = hurst[0:3]
-# hurst = hurst[-2:]
-# hurst = [0.5]
-table_RNN_DOS = _DefaultConfig(
-    payoffs=['Identity'], nb_stocks=[1], spots=[0], nb_epochs=[30],
-    hurst=hurst, train_ITM_only=[False],
-    stock_models=['FractionalBrownianMotion'],
-    hidden_size=(20,), maturities=[1], nb_paths=[20000],
-    nb_dates=[100],
-    algos=[
-        'NLSM',
-        'DOS',
-        'RLSM',
-        'RFQI',
-    ], nb_runs=10,
-    representations=['TablePriceDuration']
-)
-table_RNN_DOS_PD = _DefaultConfig(
-    payoffs=['Identity'], nb_stocks=[1], spots=[0], nb_epochs=[30],
-    hurst=hurst, train_ITM_only=[False],
-    stock_models=['FractionalBrownianMotionPathDep'],
-    hidden_size=(20,), maturities=[1], nb_paths=[20000],
-    nb_dates=[100],
-    algos=[
-        'NLSM',
-        'DOS',
-    ], nb_runs=10,
-    representations=['TablePriceDuration']
-)
-table_RNN_DOS_bf = _DefaultConfig(
-    payoffs=['Identity'], nb_stocks=[1], spots=[0], nb_epochs=[30],
-    hurst=hurst, train_ITM_only=[False],
-    stock_models=['FractionalBrownianMotion'],
-    hidden_size=(20,), maturities=[1], nb_paths=[20000],
-    nb_dates=[100],
-    algos=[
-        'LSM',
-    ], nb_runs=10,
-    representations=['TablePriceDuration']
-)
+
+# table_RNN_DOS = _DefaultConfig(
+#     payoffs=['Identity'], nb_stocks=[1], spots=[0], nb_epochs=[30],
+#     hurst=hurst, train_ITM_only=[False],
+#     stock_models=['FractionalBrownianMotion'],
+#     hidden_size=(20,), maturities=[1], nb_paths=[20000],
+#     nb_dates=[100],
+#     algos=[
+#         'NLSM',
+#         'DOS',
+#         'RLSM',
+#         'RFQI',
+#     ], nb_runs=10,
+#     representations=['TablePriceDuration']
+# )
+# table_RNN_DOS_PD = _DefaultConfig(
+#     payoffs=['Identity'], nb_stocks=[1], spots=[0], nb_epochs=[30],
+#     hurst=hurst, train_ITM_only=[False],
+#     stock_models=['FractionalBrownianMotionPathDep'],
+#     hidden_size=(20,), maturities=[1], nb_paths=[20000],
+#     nb_dates=[100],
+#     algos=[
+#         'NLSM',
+#         'DOS',
+#     ], nb_runs=10,
+#     representations=['TablePriceDuration']
+# )
+# table_RNN_DOS_bf = _DefaultConfig(
+#     payoffs=['Identity'], nb_stocks=[1], spots=[0], nb_epochs=[30],
+#     hurst=hurst, train_ITM_only=[False],
+#     stock_models=['FractionalBrownianMotion'],
+#     hidden_size=(20,), maturities=[1], nb_paths=[20000],
+#     nb_dates=[100],
+#     algos=[
+#         'LSM',
+#     ], nb_runs=10,
+#     representations=['TablePriceDuration']
+# )
 
 factors0 = []
 for a in [0.0001]:
@@ -228,28 +226,28 @@ table_RNN_DOS_randRNN = _DefaultConfig(
     ], nb_runs=10,
     representations=['TablePriceDuration']
 )
-table_RNN_DOS_FQIR_PD = _DefaultConfig(
-    payoffs=['Identity'], nb_stocks=[1], spots=[0], nb_epochs=[30],
-    hurst=hurst, train_ITM_only=[False],
-    stock_models=['FractionalBrownianMotionPathDep'],
-    hidden_size=(20,), maturities=[1], nb_paths=[20000],
-    nb_dates=[100],
-    algos=[
-        'RFQI',
-    ], nb_runs=10,
-    representations=['TablePriceDuration']
-)
-table_RNN_DOS_FQIRRNN = _DefaultConfig(
-    payoffs=['Identity'], nb_stocks=[1], spots=[0], nb_epochs=[30],
-    hurst=hurst, train_ITM_only=[False],
-    stock_models=['FractionalBrownianMotion'],
-    hidden_size=(20,), maturities=[1], nb_paths=[20000],
-    nb_dates=[100],
-    algos=[
-        'RRFQI'
-    ], nb_runs=10,
-    representations=['TablePriceDuration']
-)
+# table_RNN_DOS_FQIR_PD = _DefaultConfig(
+#     payoffs=['Identity'], nb_stocks=[1], spots=[0], nb_epochs=[30],
+#     hurst=hurst, train_ITM_only=[False],
+#     stock_models=['FractionalBrownianMotionPathDep'],
+#     hidden_size=(20,), maturities=[1], nb_paths=[20000],
+#     nb_dates=[100],
+#     algos=[
+#         'RFQI',
+#     ], nb_runs=10,
+#     representations=['TablePriceDuration']
+# )
+# table_RNN_DOS_FQIRRNN = _DefaultConfig(
+#     payoffs=['Identity'], nb_stocks=[1], spots=[0], nb_epochs=[30],
+#     hurst=hurst, train_ITM_only=[False],
+#     stock_models=['FractionalBrownianMotion'],
+#     hidden_size=(20,), maturities=[1], nb_paths=[20000],
+#     nb_dates=[100],
+#     algos=[
+#         'RRFQI'
+#     ], nb_runs=10,
+#     representations=['TablePriceDuration']
+# )
 
 
 
@@ -408,3 +406,25 @@ test_table = _SmallDimensionTable(
     nb_runs=2, factors=((0.001,0.001,0.001),),
     representations=['TablePriceDuration'],
 )
+
+
+
+
+#### CondSigKME
+
+config1_prices = _DefaultConfig(
+    payoffs=['Identity'], nb_stocks=[5], spots=[0], nb_epochs=[30],
+    hurst=hurst, train_ITM_only=[False],
+    factors=factors0,
+    stock_models=['FractionalBrownianMotion'],
+    hidden_size=(20,), maturities=[1], nb_paths=[20000],
+    nb_dates=[10],
+    algos=[
+        'RRLSM',
+    ], nb_runs=3,
+    representations=['TablePriceDuration']
+)
+
+config1_paths = config1_prices
+config1_paths.nb_paths = [1000]
+config1_paths.nb_runs = [1]
