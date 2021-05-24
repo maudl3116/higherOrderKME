@@ -6,3 +6,4 @@ h5py==2.8.0
 matplotlib==3.3.4
 Pillow==8.2.0
 pyflex==0.1.5
+fbm==0.3.0
