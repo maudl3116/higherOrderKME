@@ -432,6 +432,15 @@ config1_prices = _DefaultConfig(
     representations=['TablePriceDuration']
 )
 
-config1_paths = config1_prices
-config1_paths.nb_paths = [1000]
-config1_paths.nb_runs = [1]
+config1_paths = _DefaultConfig(
+    payoffs=['Identity'], nb_stocks=[5], spots=[0], nb_epochs=[30],
+    hurst=hurst, train_ITM_only=[False],
+    factors=factors0,
+    stock_models=['FractionalBrownianMotion'],
+    hidden_size=(20,), maturities=[1], nb_paths=[1000],
+    nb_dates=[10],
+    algos=[
+        'RRLSM',
+    ], nb_runs=1,
+    representations=['TablePriceDuration']
+)
