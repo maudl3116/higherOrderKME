@@ -43,7 +43,7 @@ def model(X, y, rank=0, alphas0=[0.5], alphas1=[0.5], lambdas=[0.1], dyadic_orde
     use_gpu = torch.cuda.is_available()
 
     assert mode in ['svr', 'krr'], "mode must be either 'svr' or 'krr' "
-    assert order==0 or order==1, "orders bigger than 1 have not been implemented yet"
+    assert rank==0 or rank==1, "orders bigger than 1 have not been implemented yet"
 
     # possibly augment the state space of the time series
     if ll is not None:
