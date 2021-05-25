@@ -12,7 +12,7 @@ import scipy.misc
 from physics_engine import BallEngine, ClothEngine
 
 from utils import rand_float, rand_int
-from utils import init_stat, combine_stat, load_data, store_data
+from utils import init_stat, combine_stat, load_data, store_data, store_trajectories, store_graph
 from utils import resize, crop
 from utils import adjust_brightness, adjust_saturation, adjust_contrast, adjust_hue
 
@@ -93,6 +93,7 @@ def gen_Ball(info):
     n_rollout, time_step = info['n_rollout'], info['time_step']
     dt, video, image, draw_edge, args, phase = info['dt'], info['video'], info['image'], info['draw_edge'], info['args'], info['phase']
     n_ball = info['n_ball']
+    save_type = info['save_type']
 
     np.random.seed(round(time.time() * 1000 + thread_idx) % 2 ** 32)
 
@@ -101,14 +102,16 @@ def gen_Ball(info):
     action_dim = 2              # ddx, ddy
 
     stats = [init_stat(attr_dim), init_stat(state_dim), init_stat(action_dim)]
-
+    traj = []
+    graph = None
     engine = BallEngine(dt, state_dim, action_dim=2)
 
     # bar = ProgressBar()
     for i in range(n_rollout):
         rollout_idx = thread_idx * n_rollout + i
         rollout_dir = os.path.join(data_dir, str(rollout_idx))
-        os.system('mkdir -p ' + rollout_dir)
+        if save_type==0:
+            os.system('mkdir -p ' + rollout_dir)
 
         engine.init(n_ball,param_load=args.load_rels) # changed this
         n_obj = engine.num_obj
@@ -140,21 +143,27 @@ def gen_Ball(info):
 
             actions_all[j] = act.copy()
 
+        
         datas = [attrs_all, states_all, actions_all, rel_attrs_all]
-        store_data(data_names, datas, rollout_dir + '.h5')
-        engine.render(states_all, actions_all, engine.get_param(), video=video, image=image,
+        traj.append(states_all.astype(np.float64))
+        graph = rel_attrs_all
+        if save_type == 0:
+            store_data(data_names, datas, rollout_dir + '.h5')   # stores the rollout
+            engine.render(states_all, actions_all, engine.get_param(), video=video, image=image,
                       path=rollout_dir, draw_edge=draw_edge, verbose=True)
 
         datas = [datas[i].astype(np.float64) for i in range(len(datas))]
-
+        
         for j in range(len(stats)):
             stat = init_stat(stats[j].shape[0])
             stat[:, 0] = np.mean(datas[j], axis=(0, 1))[:]
             stat[:, 1] = np.std(datas[j], axis=(0, 1))[:]
             stat[:, 2] = datas[j].shape[0]
             stats[j] = combine_stat(stats[j], stat)
-
-    return stats
+    if save_type == 0:
+        return stats
+    else:
+        return stats, graph, traj
 
 
 def gen_Cloth(info):
@@ -261,6 +270,7 @@ class PhysicsDataset():
         self.stat_path = os.path.join(self.args.dataf, 'stat.h5')
         self.stat = None
 
+        # if self.args.h5==0:
         os.system('mkdir -p ' + self.data_dir)
 
         if args.env in ['Ball']:
@@ -277,8 +287,9 @@ class PhysicsDataset():
             self.n_rollout = self.args.n_rollout - int(self.args.n_rollout * ratio)
         else:
             raise AssertionError("Unknown phase")
-
+     
         self.T = self.args.time_step
+     
         self.scale_size = args.scale_size
         self.crop_size = args.crop_size
 
@@ -306,7 +317,8 @@ class PhysicsDataset():
                     'phase': self.phase,
                     'args': self.args,
                     'vis_height': self.args.height_raw,
-                    'vis_width': self.args.width_raw}
+                    'vis_width': self.args.width_raw,
+                    'save_type':self.args.h5}
 
             if self.args.env in ['Ball']:
                 info['env'] = 'Ball'
@@ -324,13 +336,14 @@ class PhysicsDataset():
 
         if env in ['Ball']:
             data = pool.map(gen_Ball, infos)
+
         elif env in ['Cloth']:
             data = pool.map(gen_Cloth, infos)
         else:
             raise AssertionError("Unknown env")
 
         print("Training data generated, warpping up stats ...")
-
+   
         if self.phase == 'train':
             if env in ['Ball']:
                 self.stat = [init_stat(self.args.attr_dim),
@@ -340,10 +353,17 @@ class PhysicsDataset():
                 self.stat = [init_stat(self.args.state_dim),
                              init_stat(self.args.action_dim)]
 
-            for i in range(len(data)):
-                for j in range(len(self.stat)):
-                    self.stat[j] = combine_stat(self.stat[j], data[i][j])
+            if self.args.h5 != 0 :
+                data_, graph, trajectories = [core[0] for core in data], [core[1] for core in data], [core[2] for core in data]
+            else:
+                data_ = data
 
+            for i in range(len(data_)):
+                for j in range(len(self.stat)):
+                    self.stat[j] = combine_stat(self.stat[j], data_[i][j])
+            if self.args.h5 !=0 :
+                store_trajectories(trajectories,self.args.dataf)
+                store_graph(graph,self.args.dataf)
             store_data(self.data_names[:len(self.stat)], self.stat, self.stat_path)
 
         else:

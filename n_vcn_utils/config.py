@@ -10,6 +10,7 @@ parser.add_argument('--dt', type=float, default=1./50.)
 parser.add_argument('--n_ball', type=int, default=0, help="option for ablating on the number of balls")
 parser.add_argument('--rel_type', type=int, default=1, help="type of the relation when there is one") # added this
 parser.add_argument('--rel_attr', type=float, default=0, help="attribute of the relation") # added this
+parser.add_argument('--h5', type=int, default=0, help="save h5 files") # added this
 
 parser.add_argument('--stage', default='kp', help='kp|dy')
 parser.add_argument('--dataf', default='data')
@@ -88,7 +89,7 @@ def gen_args():
         args.data_names = ['attrs', 'states', 'actions', 'rels']
 
         args.frame_offset = 1
-        args.train_valid_ratio = 0.01
+        args.train_valid_ratio = 0.99
 
         # radius
         args.attr_dim = 1

@@ -4,6 +4,8 @@ import cv2
 import sys
 import numpy as np
 import h5py
+import pickle
+import os.path
 
 from PIL import Image, ImageOps, ImageEnhance
 
@@ -57,6 +59,24 @@ def store_data(data_names, data, path):
     for i in range(len(data_names)):
         hf.create_dataset(data_names[i], data=data[i])
     hf.close()
+
+def store_graph(graph, path):
+    i=0
+    while os.path.exists(path+'/graph_'+str(i)+'.obj'):
+        i+=1
+    pickle.dump(graph,open(path+'/graph_'+str(i)+'.obj','wb'))
+
+def store_trajectories(data, path): # added this 
+    trajectories = []
+    for e in data:
+        for rollout in e:
+            trajectories.append(rollout.transpose(1,0,2)[:,None,:,:])
+    data = np.concatenate(trajectories, axis=1)
+
+    i=0
+    while os.path.exists(path+'/'+str(i)+'.obj'):
+        i+=1
+    pickle.dump(data,open(path+'/'+str(i)+'.obj','wb'))
 
 
 def load_data(data_names, path):
