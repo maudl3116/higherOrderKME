@@ -332,7 +332,7 @@ class RBF_Sig_MMD_Kernel(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         K = self.K_full[X][:,self.ind_train].copy()
-        return np.exp(-alpha*K) 
+        return np.exp(-self.gamma*K) 
 
     def fit(self, X, y=None, **fit_params):
         self.ind_train = X
