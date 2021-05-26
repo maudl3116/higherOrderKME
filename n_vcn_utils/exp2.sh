@@ -7,7 +7,7 @@ do
         --env Ball \
         --stage dy \
         --n_rollout 100 \
-        --n_ball i \
+        --n_ball $i \
         --time_step 20 \
         --node_attr_dim 0 \
         --edge_attr_dim 1 \
