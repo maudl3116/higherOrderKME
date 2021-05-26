@@ -301,7 +301,7 @@ def classifier(X, y, rank=0, alphas0=[0.5], alphas1=[0.5], lambdas=[0.1], dyadic
             y_pred = model.predict(ind_test)
         
             results_tmp[n]={'pred':y_pred,'true':y_test}
-            Acc_test[n] = model.score(y_pred, y_test)
+            Acc_test[n] = np.sum(y_pred == y_test)/len(y_pred)
             models.append(model)
         # pick the model with the best performances on the train set
         best_score = 0
