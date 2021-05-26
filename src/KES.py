@@ -216,7 +216,7 @@ def classifier(X, y, rank=0, alphas0=[0.5], alphas1=[0.5], lambdas=[0.1], dyadic
     parameters = {'clf__kernel': ['precomputed'],
                     'rbf_mmd__gamma':list(np.logspace(-4, 4, 9)),
                     'clf__C': np.logspace(0, 4, 5),
-                    'clf_gamma': list(np.logspace(-4, 4, 9)) + ['auto']}
+                    'clf__gamma': list(np.logspace(-4, 4, 9)) + ['auto']}
 
     # check if the user has not given an irrelevant entry
     assert len(list(set(parameters.keys()) & set(grid.keys()))) == len(
