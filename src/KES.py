@@ -314,11 +314,11 @@ def classifier(X, y, rank=0, alphas0=[0.5], alphas1=[0.5], lambdas=[0.1], dyadic
         scores[i] = Acc_test[index]
         results[i] = results_tmp[index]
        
-        # empty memory
-        del list_kernels
-        torch.cuda.empty_cache()
-        print('best scaling parameter (cv on the train set): ', hyperparams[index])
-        print('best mse score (cv on the train set): ', best_scores_train[index])
+    # empty memory
+    del list_kernels
+    torch.cuda.empty_cache()
+    print('best scaling parameter (cv on the train set): ', hyperparams[index])
+    print('best mse score (cv on the train set): ', best_scores_train[index])
     return scores.mean(), scores.std(), results, ind_train, ind_test, models[index]
 
 
