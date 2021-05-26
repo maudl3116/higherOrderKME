@@ -68,7 +68,7 @@ def hsicclust( X, Y, Z, p=0, numCluster=10,eps=0.1, dyadic_order=0,static='rbf',
         pval = np.mean(np.append(pval_perm,hsic_)>=hsic_)  # the more there are pval_terms bigger than hsic, the higher the p-value
     else:
         pval = hsic_ # not a pvalue
-    print('pval',pval)
+    # print('pval',pval)
     return pval
 
 
@@ -76,7 +76,7 @@ def hsicclust( X, Y, Z, p=0, numCluster=10,eps=0.1, dyadic_order=0,static='rbf',
 def HSIC(K,L,M, eps):
     # TODO: check what needs to be recomputed for the permutation test  
     n = K.shape[0]
-    M_eps = torch.cholesky_inverse(M + n*eps*torch.eye(n,device=K.device))
+    M_eps = torch.cholesky_inverse(M + n*eps*torch.eye(n,device=K.device))   # TODO: test with linalg.inv 
     M_eps_2 = torch.matmul(M_eps, M_eps)
 
     term_1 = torch.matmul(K, L)
