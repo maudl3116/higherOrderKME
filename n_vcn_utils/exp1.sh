@@ -1,5 +1,5 @@
 #!/bin/bash
-for r in {0..2}
+for r in $(seq 1 1 15)
 do
   for i in $(seq 20 20 100)
   do
