@@ -34,9 +34,9 @@ def hsicclust( X, Y, Z, p=0, numCluster=10,eps=0.1, dyadic_order=0,static='rbf',
 
     # create signature kernel gram matrices
     if static=='rbf':
-        static_kernel = sigkernel.RBFKernel(sigma=sigma)
+        static_kernel = sigkernel.RBFKernel(sigma=sigma,add_time = X.shape[1]-1)
     else:
-        static_kernel = sigkernel.LinearKernel()
+        static_kernel = sigkernel.LinearKernel(add_time = X.shape[1]-1)
 
     signature_kernel = sigkernel.SigKernel(static_kernel, dyadic_order)
     K_X = signature_kernel.compute_Gram(X,X,sym=True)
