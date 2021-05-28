@@ -13,22 +13,6 @@ import itertools
 import torch 
 
 
-import numpy as np
-
-import warnings
-warnings.filterwarnings('ignore')
-from tqdm import tqdm as tqdm
-
-from sklearn_transformers import LeadLag, AddTime
-
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import GridSearchCV, train_test_split
-from sklearn.metrics import mean_squared_error
-from sklearn.svm import SVR
-from sklearn.kernel_ridge import KernelRidge
-from sklearn.pipeline import Pipeline
-from sklearn.base import BaseEstimator, TransformerMixin
-
 
 def model(X, y, ll=None, at=False, mode='krr', NUM_TRIALS=5, cv=3, grid={}):
     """Performs a DR-Matern32 kernel-based distribution regression on ensembles (of possibly unequal cardinality)
@@ -46,7 +30,7 @@ def model(X, y, ll=None, at=False, mode='krr', NUM_TRIALS=5, cv=3, grid={}):
        Output: mean MSE (and std) (both scalars) of regression performance on a cv-folds cross-validation (NUM_TRIALS times)
     """
 
-    assert mode in ['svr', 'krr'], "mode must be either 'svr' or 'krr' "
+    assert mode in ['svr', 'krr','svc'], "mode must be either 'svr' or 'krr' "
     
     # possibly augment the state space of the time series
     if ll is not None:
@@ -71,7 +55,7 @@ def model(X, y, ll=None, at=False, mode='krr', NUM_TRIALS=5, cv=3, grid={}):
 
         clf = KernelRidge
 
-    else:
+    elif mode=='svr':
         parameters = {'clf__kernel': ['precomputed'], 'clf__C': [1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3],
                       'rbf_matern__gamma_emb': [1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3],
                       'rbf_matern__gamma_top': [1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3]}
@@ -86,6 +70,17 @@ def model(X, y, ll=None, at=False, mode='krr', NUM_TRIALS=5, cv=3, grid={}):
 
         clf = SVR
 
+    elif mode =='svc':
+        # default grid
+        parameters = {'clf__kernel': ['precomputed'],
+                    'clf__C': np.logspace(0, 4, 5),
+                    'clf__gamma': list(np.logspace(-4, 4, 9)) + ['auto'],
+                    'rbf_matern__gamma_emb':list(np.logspace(-4, 4, 9)),
+                    'rbf_matern__gamma_top':list(np.logspace(-4, 4, 9)) 
+                    }
+        clf = SVC
+    
+
     # building the RBF-Matern estimator
     pipe = Pipeline([('rbf_matern', RBF_Matern_Kernel(max_items=max_items, size_item=dim_path * common_T)),
                      ('clf', clf())])
@@ -97,13 +92,15 @@ def model(X, y, ll=None, at=False, mode='krr', NUM_TRIALS=5, cv=3, grid={}):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=i+1)
         # parameter search
         model = GridSearchCV(pipe, parameters, verbose=0, n_jobs=-1, scoring='neg_mean_squared_error', cv=cv)
-
         model.fit(X_train, y_train)
 
         y_pred = model.predict(X_test)
-
-        scores[i] = mean_squared_error(y_pred, y_test)
+        if mode=='svc':
+            scores[i] = np.sum(y_pred == y_test)/len(y_pred)
+        else:
+            scores[i] = mean_squared_error(y_pred, y_test)
         results[i]={'pred':y_pred,'true':y_test}
+
     return scores.mean(), scores.std(), results
 
 

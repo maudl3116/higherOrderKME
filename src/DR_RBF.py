@@ -30,7 +30,7 @@ def model(X, y, ll=None, at=False, mode='krr', NUM_TRIALS=5, cv=3, grid={}):
        Output: mean MSE (and std) (both scalars) of regression performance on a cv-folds cross-validation (NUM_TRIALS times)
     """
 
-    assert mode in ['svr', 'krr'], "mode must be either 'svr' or 'krr' "
+    assert mode in ['svr', 'krr','svc'], "mode must be either 'svr' or 'krr' "
     
     # possibly augment the state space of the time series
     if ll is not None:
@@ -55,7 +55,7 @@ def model(X, y, ll=None, at=False, mode='krr', NUM_TRIALS=5, cv=3, grid={}):
 
         clf = KernelRidge
 
-    else:
+    elif mode =='svr':
         parameters = {'clf__kernel': ['precomputed'], 'clf__C': [1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3],
                       'rbf_rbf__gamma_emb': [1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3],
                       'rbf_rbf__gamma_top': [1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3]}
@@ -69,6 +69,17 @@ def model(X, y, ll=None, at=False, mode='krr', NUM_TRIALS=5, cv=3, grid={}):
         parameters.update(grid)
 
         clf = SVR
+
+    elif mode =='svc':
+        # default grid
+        parameters = {'clf__kernel': ['precomputed'],
+                    'clf__C': np.logspace(0, 4, 5),
+                    'clf__gamma': list(np.logspace(-4, 4, 9)) + ['auto'],
+                    'rbf_rbf__gamma_emb':list(np.logspace(-4, 4, 9)),
+                    'rbf_rbf__gamma_top':list(np.logspace(-4, 4, 9)) 
+                    }
+        clf = SVC
+
 
     # building the RBF-RBF estimator
     pipe = Pipeline([('rbf_rbf', RBF_RBF_Kernel(max_items=max_items, size_item=dim_path * common_T)),
@@ -85,8 +96,10 @@ def model(X, y, ll=None, at=False, mode='krr', NUM_TRIALS=5, cv=3, grid={}):
         model.fit(X_train, y_train)
 
         y_pred = model.predict(X_test)
-
-        scores[i] = mean_squared_error(y_pred, y_test)
+        if mode=='svc':
+            scores[i] = np.sum(y_pred == y_test)/len(y_pred)
+        else:
+            scores[i] = mean_squared_error(y_pred, y_test)
         results[i]={'pred':y_pred,'true':y_test}
     
     return scores.mean(), scores.std(), results
