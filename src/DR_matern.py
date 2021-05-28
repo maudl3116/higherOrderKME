@@ -19,7 +19,6 @@ import warnings
 warnings.filterwarnings('ignore')
 from tqdm import tqdm as tqdm
 
-from utils import bags_to_2D
 from sklearn_transformers import LeadLag, AddTime
 
 from sklearn.preprocessing import StandardScaler
