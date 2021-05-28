@@ -75,7 +75,7 @@ def model(X, y, ll=None, at=False, mode='krr', NUM_TRIALS=5, cv=3, grid={}):
         parameters = {'clf__kernel': ['precomputed'],
                     'clf__C': np.logspace(0, 4, 3),
                     'clf__gamma': list(np.logspace(-2, 2, 3)) + ['auto'],
-                    'rbf_rbf__gamma_emb':list(np.logspace(-1, 1,3)),
+                    'rbf_rbf__gamma_emb':[1],
                     'rbf_rbf__gamma_top':list(np.logspace(-1, 1,3)) 
                     }
         clf = SVC
