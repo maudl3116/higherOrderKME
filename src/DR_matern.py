@@ -43,9 +43,9 @@ def model(X, y, ll=None, at=False, mode='krr', NUM_TRIALS=5, cv=3, grid={}):
     X, max_items, common_T, dim_path = bags_to_2D(X)
 
     if mode == 'krr':
-        parameters = {'clf__kernel': ['precomputed'], 'clf__alpha': [1e-3,1e-2, 1e-1, 1, 1e1, 1e2,1e3],
-                      'rbf_matern__gamma_emb': [1e-3,1e-2, 1e-1, 1, 1e1, 1e2,1e3],
-                      'rbf_matern__gamma_top': [1e-3,1e-2, 1e-1, 1, 1e1, 1e2,1e3]}
+        parameters = {'clf__kernel': ['precomputed'], 'clf__alpha': [1e-1, 1, 1e1],
+                      'rbf_matern__gamma_emb': [1e1, 1, 1e-1],
+                      'rbf_matern__gamma_top': [1e1, 1, 1e-1]}
 
         # check if the user has not given an irrelevant entry
         assert len(list(set(parameters.keys()) & set(grid.keys()))) == len(
@@ -74,9 +74,9 @@ def model(X, y, ll=None, at=False, mode='krr', NUM_TRIALS=5, cv=3, grid={}):
         # default grid
         parameters = {'clf__kernel': ['precomputed'],
                     'clf__C': np.logspace(0, 4, 5),
-                    'clf__gamma': list(np.logspace(-4, 4, 9)) + ['auto'],
-                    'rbf_matern__gamma_emb':list(np.logspace(-4, 4, 9)),
-                    'rbf_matern__gamma_top':list(np.logspace(-4, 4, 9)) 
+                    'clf__gamma': list(np.logspace(-2, 2, 3)) + ['auto'],
+                    'rbf_matern__gamma_emb':list(np.logspace(-1, 1,3)),
+                    'rbf_matern__gamma_top':list(np.logspace(-1, 1,3)) 
                     }
         clf = SVC
     
