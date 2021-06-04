@@ -25,7 +25,7 @@ def model(X, y, rank=0, alphas0=[0.5], alphas1=[0.5], lambdas=[0.1], dyadic_orde
                         - for any i, X[i] is a list of arrays of shape (length, dim)
                         - for any j, X[i][j] is an array of shape (length, dim)
               y (np.array): array of shape (n_samples,)
-              order (int): order of the kernel 
+              rank (int): order of the DR kernel 
               alphas0 (list of floats): RBF kernel scaling parameter to cross-validate for order 0
               alphas1 (list of floats): RBF kernel scaling parameter to cross-validate for order 1
               lambdas (list of floats): conditional signature mean embedding regularizer to cross-validate for order 1 
@@ -177,28 +177,6 @@ def model(X, y, rank=0, alphas0=[0.5], alphas1=[0.5], lambdas=[0.1], dyadic_orde
 
 
 def classifier(X, y, rank=0, alphas0=[0.5], alphas1=[0.5], lambdas=[0.1], dyadic_order0 = 1, dyadic_order1 = 1, ll=None, at=False, NUM_TRIALS=1, cv=3, grid={}, imbalanced=False):
-    """Performs a kernel based distribution regression on ensembles (of possibly unequal cardinality)
-       of univariate or multivariate time-series (of possibly unequal lengths)
-       We use the RBF embedding throughout. 
-       Input:
-              X (list): list of lists such that
-                        - len(X) = n_samples
-                        - for any i, X[i] is a list of arrays of shape (length, dim)
-                        - for any j, X[i][j] is an array of shape (length, dim)
-              y (np.array): array of shape (n_samples,)
-              order (int): order of the kernel 
-              alphas0 (list of floats): RBF kernel scaling parameter to cross-validate for order 0
-              alphas1 (list of floats): RBF kernel scaling parameter to cross-validate for order 1
-              lambdas (list of floats): conditional signature mean embedding regularizer to cross-validate for order 1 
-              dyadic_order0 (int): dyadic order of PDE solver for order 0
-              dyadic_order1 (int): dyadic order of PDE solver for order 1
-              ll (list of ints): dimensions to lag (set to None by default)
-              at (bool): if True pre-process the input path with add-time
-              NUM_TRIALS, cv : parameters for cross-validation
-              grid (dict): a dictionary to specify the hyperparameter grid for the gridsearch. Unspecified entries will be set by default
-              imbalanced (bool): whether to create imbalanced folds
-       Output: mean MSE (and std) (both scalars) of regression performance on a cv-folds cross-validation (NUM_TRIALS times) as well results (a dictionary containing the predicted labels and true labels)
-    """
     
     use_gpu = torch.cuda.is_available()
 
