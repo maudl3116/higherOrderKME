@@ -410,7 +410,7 @@ test_table = _SmallDimensionTable(
 
 
 
-#### CondSigKME
+### higher order KME
 hurst = list(np.linspace(0, 1, 51))
 hurst[0] = 0.01
 hurst[-1] = 0.999
