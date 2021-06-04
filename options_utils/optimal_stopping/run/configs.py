@@ -420,7 +420,7 @@ for a in [0.0001]:
         factors0 += [[a,b]]
 
 config1_prices = _DefaultConfig(
-    payoffs=['Identity'], nb_stocks=[5], spots=[0], nb_epochs=[30],
+    payoffs=['Identity'], nb_stocks=[1], spots=[0], nb_epochs=[30],
     hurst=hurst, train_ITM_only=[False],
     factors=factors0,
     stock_models=['FractionalBrownianMotion'],
@@ -433,7 +433,7 @@ config1_prices = _DefaultConfig(
 )
 
 config1_paths = _DefaultConfig(
-    payoffs=['Identity'], nb_stocks=[5], spots=[0], nb_epochs=[30],
+    payoffs=['Identity'], nb_stocks=[1], spots=[0], nb_epochs=[30],
     hurst=hurst, train_ITM_only=[False],
     factors=factors0,
     stock_models=['FractionalBrownianMotion'],
