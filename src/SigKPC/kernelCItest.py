@@ -2,7 +2,16 @@
 import numpy as np
 import torch 
 import sigkernel
-def hsicclust( X, Y, Z, p=0, numCluster=10,eps=0.1, dyadic_order=0,static='rbf', sigma=1.):
+
+def hsicclust( X, Y, Z, p=0, numCluster=10, eps=0.1, dyadic_order=0, static='rbf', sigma=1.):
+    """Input: 
+                    - X: torch tensor of shape (batch, length_X, dim_X),
+                    - Y: torch tensor of shape (batch, length_Y, dim_Y)
+                    - Z: torch tensor of shape (batch, length_Z, dim_Z)
+                    - p: number of permutation of 1-alpha level test
+                    - numCluster: number of clusters if we use kpc cluster permutation
+                    - eps: normalization parameter
+    """
 
     X = torch.tensor(X,dtype=torch.float64)
     Y = torch.tensor(Y,dtype=torch.float64)
@@ -15,14 +24,6 @@ def hsicclust( X, Y, Z, p=0, numCluster=10,eps=0.1, dyadic_order=0,static='rbf',
         Y = Y.cuda()
         Z = Z.cuda()
 
-    """Input: 
-                    - X: torch tensor of shape (batch, length_X, dim_X),
-                    - Y: torch tensor of shape (batch, length_Y, dim_Y)
-                    - Z: torch tensor of shape (batch, length_Z, dim_Z)
-                    - p: number of permutation of 1-alpha level test
-                    - numCluster: number of clusters if we use kpc cluster permutation
-                    - eps: normalization parameter
-    """
     assert p==0, "p>0 not implemented"
 
     n = X.shape[0] # number of samples
@@ -34,9 +35,9 @@ def hsicclust( X, Y, Z, p=0, numCluster=10,eps=0.1, dyadic_order=0,static='rbf',
 
     # create signature kernel gram matrices
     if static=='rbf':
-        static_kernel = sigkernel.RBFKernel(sigma=sigma,add_time = X.shape[1]-1)
+        static_kernel = sigkernel.RBFKernel(sigma=sigma) #,add_time = X.shape[1]-1)
     else:
-        static_kernel = sigkernel.LinearKernel(add_time = X.shape[1]-1)
+        static_kernel = sigkernel.LinearKernel() #add_time = X.shape[1]-1)
 
     signature_kernel = sigkernel.SigKernel(static_kernel, dyadic_order)
     K_X = signature_kernel.compute_Gram(X,X,sym=True)
@@ -52,16 +53,8 @@ def hsicclust( X, Y, Z, p=0, numCluster=10,eps=0.1, dyadic_order=0,static='rbf',
 
     # TODO: permutation test
 
-    # for i in range(p):
-        
-        # t = kmeans(z,numCluster)
-
-        # perm = np.arange(n)
-
-        # for j in range(numCluster):
-
-        #     perm[] = ...
-
+    # for i in range(p):  
+        # TODO
         # pval_perm[i]  = HSIC(K,L,M,eps)
 
     if p > 0:
@@ -74,9 +67,9 @@ def hsicclust( X, Y, Z, p=0, numCluster=10,eps=0.1, dyadic_order=0,static='rbf',
 
 
 def HSIC(K,L,M, eps):
-    # TODO: check what needs to be recomputed for the permutation test  
+
     n = K.shape[0]
-    M_eps = torch.cholesky_inverse(M + n*eps*torch.eye(n,device=K.device))   # TODO: test with linalg.inv 
+    M_eps = torch.cholesky_inverse(M + n*eps*torch.eye(n,device=K.device))  
     M_eps_2 = torch.matmul(M_eps, M_eps)
 
     term_1 = torch.matmul(K, L)

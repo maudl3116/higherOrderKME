@@ -6,14 +6,17 @@ from .kernelCItest import hsicclust
 
 def skeleton(data, alpha, test, p, maxi=1, fixedGaps=None, eps=0.01, dyadic_order=0, static='rbf', sigma=1.):
                          
-    """Input: 
+    """
+    Performs undirected part of PC-Algorithm (skeleton phase)
+
+    Input: 
                     - data: torch tensor of shape (n_sto_pro, n_repeat , L, dim),
                     - alpha: threshold to decide whether to reject edge or not 
-                    - p: number of permutation of 1-alpha level test
-    """
-    # TODO: make compatible hypothesis test p-value and only hsic value
 
-    # Performs undirected part of PC-Algorithm
+    TODO: implement permutation test
+    """
+
+    
     if fixedGaps is None:
         # start from the fully connected graph
         G = np.ones((p,p)) 
@@ -70,7 +73,7 @@ def skeleton(data, alpha, test, p, maxi=1, fixedGaps=None, eps=0.01, dyadic_orde
                             hsicMIN[i,j] = pval
                         if test:
                             if pval >= alpha: 
-                                # disconnect i and j, reject null hypothesis that they are connected
+                                # disconnect i and j
                                 G[i,j] = 0 
                                 G[j,i] = 0
                                 break
@@ -82,7 +85,7 @@ def skeleton(data, alpha, test, p, maxi=1, fixedGaps=None, eps=0.01, dyadic_orde
                                 S = nextSet
                         else:
                             if pval <= alpha: 
-                                # disconnect i and j, reject null hypothesis that they are connected
+                                # disconnect i and j
                                 G[i,j] = 0 
                                 G[j,i] = 0
                                 break
