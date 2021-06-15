@@ -444,3 +444,30 @@ config1_paths = _DefaultConfig(
     ], nb_runs=1,
     representations=['TablePriceDuration']
 )
+
+
+config2_prices = _DefaultConfig(
+    nb_stocks=[100],
+    spots=list(np.linspace(80, 120, 50)),
+    payoffs=['GeometricPut'],
+    stock_models=['BlackScholes'],
+    nb_paths=[20000],
+    nb_dates=[10],
+    algos=[
+        'RFQI',
+    ], nb_runs=5,
+    representations=['TablePriceDuration']
+)
+
+config2_paths = _DefaultConfig(
+    nb_stocks=[100], 
+    spots=list(np.linspace(80, 120, 50)),
+    payoffs=['GeometricPut'],
+    stock_models=['BlackScholes'],
+    nb_paths=[1000],
+    nb_dates=[10],
+    algos=[
+        'RFQI',
+    ], nb_runs=1,
+    representations=['TablePriceDuration']
+)
