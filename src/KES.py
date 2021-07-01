@@ -1,11 +1,11 @@
 import numpy as np
 from tqdm import tqdm as tqdm
 from tqdm import trange as trange
-from sklearn_transformers import AddTime, LeadLag
+from sklearn_transformers import AddTime, LeadLag, SketchExpectedSignatureTransform, SketchpwCKMETransform
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import mean_squared_error
-from sklearn.svm import SVR, SVC
+from sklearn.svm import SVR
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.pipeline import Pipeline
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -71,10 +71,9 @@ def model(X, y, rank=0, alphas0=[0.5], alphas1=[0.5], lambdas=[0.1], dyadic_orde
 
         # default grid
         parameters = {'clf__kernel': ['precomputed'],
-                       'clf__gamma': [1e3, 1e2, 1e1, 1, 1e-1,1e-2,1e-3], 
+                      'clf__gamma': [1e3, 1e2, 1e1, 1, 1e-1,1e-2,1e-3], 
                       'rbf_mmd__gamma':[1e3, 1e2, 1e1, 1, 1e-1,1e-2,1e-3],
-                       'clf__C': [1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3]
-                       }
+                      'clf__C': [1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3]}
 
         # check if the user has not given an irrelevant entry
         assert len(list(set(parameters.keys()) & set(grid.keys()))) == len(
@@ -84,9 +83,9 @@ def model(X, y, rank=0, alphas0=[0.5], alphas1=[0.5], lambdas=[0.1], dyadic_orde
         parameters.update(grid)
         clf = SVR
 
+    # Precompute the Gram matrices for the different scaling parameters, to avoid recomputing them for each grid search step
     list_kernels = []
     hyperparams = list(itertools.product(alphas0, alphas1, lambdas))
-    # Precompute the Gram matrices for the different scaling parameters, to avoid recomputing them for each grid search step
     for (scale1,scale2,lambda_) in hyperparams:
 
         mmd = np.zeros((len(X),len(X)))
@@ -298,6 +297,123 @@ def classifier(X, y, rank=0, alphas0=[0.5], alphas1=[0.5], lambdas=[0.1], dyadic
     print('best scaling parameter (cv on the train set): ', hyperparams[index])
     print('best mse score (cv on the train set): ', best_scores_train[index])
     return scores.mean(), scores.std(), results, ind_train, ind_test, models[index]
+
+
+
+def model_higher_rank_sketch(X, y, depths1=[2], ncompos1=[20], rbf1=True, alphas1=[1], lambdas_=[10], depths2=[2], ncompos2=[20], rbf2=True, alphas2=[1], ll=None, at=False,  NUM_TRIALS=1, cv=3, grid={}):
+    """Performs a kernel based distribution classification on ensembles (of possibly unequal cardinality)
+       of univariate or multivariate time-series (of possibly unequal lengths)
+       We use the RBF embedding throughout. 
+       Input:
+              X (list): list of lists such that
+                        - len(X) = n_samples
+                        - for any i, X[i] is a list of arrays of shape (length, dim)
+                        - for any j, X[i][j] is an array of shape (length, dim)
+              y (np.array): array of shape (n_samples,)
+              rank (int): order of the DR kernel 
+              alphas0 (list of floats): RBF kernel scaling parameter to cross-validate for order 0
+              alphas1 (list of floats): RBF kernel scaling parameter to cross-validate for order 1
+              lambdas (list of floats): conditional signature mean embedding regularizer to cross-validate for order 1 
+              dyadic_order0 (int): dyadic order of PDE solver for order 0
+              dyadic_order1 (int): dyadic order of PDE solver for order 1
+              ll (list of ints): dimensions to lag (set to None by default)
+              at (bool): if True pre-process the input path with add-time
+              mode (str): "krr" -> Kernel Ridge Regression, 'svr' -> Support Vector Regresion
+              NUM_TRIALS, cv : parameters for cross-validation
+              grid (dict): a dictionary to specify the hyperparameter grid for the gridsearch. Unspecified entries will be set by default
+       Output: mean MSE (and std) (both scalars) of regression performance on a cv-folds cross-validation (NUM_TRIALS times) as well results (a dictionary containing the predicted labels and true labels)
+    """
+    
+    use_gpu = torch.cuda.is_available()
+
+    # possibly augment the state space of the time series
+    if ll is not None:
+        X = LeadLag(ll).fit_transform(X)
+    if at:
+        X = AddTime().fit_transform(X)
+    
+    # default grid
+    parameters = {'clf__kernel': ['precomputed'],
+                    'rbf_mmd__gamma':[1e3, 1e2, 1e1, 1, 1e-1,1e-2,1e-3],
+                    'clf__alpha': [1e3, 1e2, 1e1, 1e-1, 1e-2, 1e-3]}
+
+    # check if the user has not given an irrelevant entry
+    assert len(list(set(parameters.keys()) & set(grid.keys()))) == len(
+        list(grid.keys())), "keys should be in " + ' '.join([str(e) for e in parameters.keys()])
+
+    # merge the user grid with the default one
+    parameters.update(grid)
+
+    clf = KernelRidge
+
+    list_kernels = []
+    hyperparams = list(itertools.product(depths1,ncompos1, alphas1, lambdas_, depths2, ncompos2, alphas2))
+    # Precompute the Gram matrices for the different scaling parameters, to avoid recomputing them for each grid search step
+    for (depth1,ncompo1, alpha1, lambda_, depth2, ncompo2, alpha2) in hyperparams:
+
+        pwCKME = SketchpwCKMETransform(order=depth1, ncompo=ncompo1, rbf=rbf1, lengthscale=alpha1, lambda_=lambda_).fit_transform(X) 
+        pwCKME = AddTime().fit_transform(pwCKME)
+        ES = SketchExpectedSignatureTransform(order=depth2, ncompo=ncompo2, rbf=rbf2, lengthscale=alpha2).fit_transform(np.array(pwCKME))  #(M,D)
+
+        mmd = -2*ES@ES.T
+        mmd += np.diag(mmd)[:,None] + np.diag(mmd)[None,:]
+
+        if np.isnan(mmd).any():
+            list_kernels.append(np.eye(len(X)))
+        else:
+            list_kernels.append(mmd)
+
+
+    
+    scores = np.zeros(NUM_TRIALS)
+    results = {}
+    # Loop for each trial
+    for i in tqdm(range(NUM_TRIALS)):
+
+        best_scores_train = np.zeros(len(hyperparams))
+
+        # will only retain the MSE (mean + std) corresponding to the model achieving the best score (on the train set)
+        # i.e. the test set is not used to decide the hyperparameters.
+   
+        MSE_test = np.zeros(len(hyperparams))
+        results_tmp = {}
+        models = []
+        for n,(depth1,ncompo1, alpha1, lambda_, depth2, ncompo2, alpha2) in enumerate(hyperparams):
+            
+            ind_train, ind_test, y_train, y_test = train_test_split(np.arange(len(y)), np.array(y), test_size=0.2,
+                                                                random_state=i)
+            
+            # building the estimator
+            pipe = Pipeline([('rbf_mmd', RBF_Sig_MMD_Kernel(K_full=list_kernels[n])),
+                    ('clf', clf())
+                    ])
+            # parameter search
+            model = GridSearchCV(pipe, parameters, refit=True,verbose=0, n_jobs=-1, scoring='neg_mean_squared_error', cv=cv,
+                                 error_score=np.nan)
+
+            model.fit(ind_train, y_train)
+            best_scores_train[n] = -model.best_score_
+            # print(model_.best_params_)
+            y_pred = model.predict(ind_test)
+        
+            results_tmp[n]={'pred':y_pred,'true':y_test}
+            MSE_test[n] = mean_squared_error(y_pred, y_test)
+            models.append(model)
+        # pick the model with the best performances on the train set
+        best_score = 100000
+        index = None
+        for n,(depth1,ncompo1, alpha1, lambda_, depth2, ncompo2, alpha2) in enumerate(hyperparams):
+            if (best_scores_train[n] < best_score):
+                best_score = best_scores_train[n]
+                index = n
+
+        scores[i] = MSE_test[index]
+        results[i] = results_tmp[index]
+       
+        print('best scaling parameter (cv on the train set): ', hyperparams[index])
+        print('best mse score (cv on the train set): ', best_scores_train[index])
+    return scores.mean(), scores.std(), results
+
 
 
 
