@@ -2,9 +2,9 @@
 
 import numpy as np
 import math
-from .kernelCItest import hsicclust
+from .kernelCItest import hsicclust, hsicclust_baseline
 
-def skeleton(data, alpha, test, p, maxi=1, fixedGaps=None, eps=0.01, dyadic_order=0, static='rbf', sigma=1.):
+def skeleton(data, alpha, test, p, maxi=1, fixedGaps=None, eps=0.01, dyadic_order=0, static='rbf', sigma=1.,baseline=None,gamma=1):
                          
     """
     Performs undirected part of PC-Algorithm (skeleton phase)
@@ -66,7 +66,10 @@ def skeleton(data, alpha, test, p, maxi=1, fixedGaps=None, eps=0.01, dyadic_orde
                     S = np.arange(L)
                     while True:
                         set_nei = np.concatenate(data[neighbors[S]],axis=2)
-                        pval = hsicclust(data[i],data[j], set_nei, eps=eps, dyadic_order=dyadic_order,static=static, sigma=sigma) 
+                        if baseline is None:
+                            pval = hsicclust(data[i],data[j], set_nei, eps=eps, dyadic_order=dyadic_order,static=static, sigma=sigma) 
+                        else:
+                            pval = hsicclust_baseline(data[i],data[j], set_nei, eps=eps, baseline=baseline, gamma=gamma)
                         if pMAX[i,j] < pval:
                             pMAX[i,j] = pval
                         if hsicMIN[i,j] > pval:
