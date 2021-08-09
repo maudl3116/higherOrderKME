@@ -74,7 +74,7 @@ def hsicclust_baseline( X, Y, Z, p=0, numCluster=10, eps=0.1, baseline='rbf',gam
                     - numCluster: number of clusters if we use kpc cluster permutation
                     - eps: normalization parameter
     """
-
+    nobs = X.shape[1]
     X = np.reshape(X,(X.shape[0],-1))
     Y = np.reshape(Y,(Y.shape[0],-1))
     Z = np.reshape(Z,(Z.shape[0],-1))
@@ -84,11 +84,13 @@ def hsicclust_baseline( X, Y, Z, p=0, numCluster=10, eps=0.1, baseline='rbf',gam
     n = X.shape[0] # number of samples
 
     if baseline=='rbf':
-        K_X = RBF(X,gamma=1)
-        K_Y = RBF(Y,gamma=1)
-        K_Z = RBF(Z,gamma=1)
-
-    pval_perm = torch.zeros(p, device=X.device)
+        K_X = RBF(X,nobs,gamma=gamma)
+        K_Y = RBF(Y,nobs,gamma=gamma)
+        K_Z = RBF(Z,nobs,gamma=gamma)
+    elif baseline=='matern':
+        K_X = Matern(X,nobs,gamma=gamma)
+        K_Y = Matern(Y,nobs,gamma=gamma)
+        K_Z = Matern(Z,nobs,gamma=gamma)
 
     K_X = torch.tensor(K_X,dtype=torch.float64)
     K_Y = torch.tensor(K_Y,dtype=torch.float64)
@@ -106,8 +108,10 @@ def hsicclust_baseline( X, Y, Z, p=0, numCluster=10, eps=0.1, baseline='rbf',gam
         K_X = K_X.cuda()
         K_Y = K_Y.cuda()
         K_Z = K_Z.cuda()
+    
+    pval_perm = torch.zeros(p, device=X.device)
 
-    H = np.eye(n,dtype=torch.float64,device=X.device) - (1./n)*torch.ones((n,n),dtype=torch.float64, device=X.device)
+    H = torch.eye(n,dtype=torch.float64,device=X.device) - (1./n)*torch.ones((n,n),dtype=torch.float64, device=X.device)
     K = torch.matmul(H, torch.matmul(K_X, H))
     L = torch.matmul(H, torch.matmul(K_Y, H))
     M = torch.matmul(H, torch.matmul(K_Z, H))
@@ -143,7 +147,7 @@ def HSIC(K,L,M, eps):
 
     return torch.trace(term_1 -2*term_2 + term_3)
 
-def RBF(X,gamma=-1):
+def RBF(X,n_obs,gamma=-1):
     """
     Forms the kernel matrix K using the SE-T kernel with bandwidth gamma
     where T is the identity operator
@@ -156,11 +160,35 @@ def RBF(X,gamma=-1):
     K - matrix formed from the kernel values of all pairs of samples from the distributions
     """
     
-    n_obs = X.shape[1]
-    XX = np.vstack((X,X))
-    dist_mat = (1/np.sqrt(n_obs))*pairwise_distances(XX, metric='euclidean')
+    dist_mat = (1/np.sqrt(n_obs))*pairwise_distances(X, metric='euclidean')
     if gamma == -1:
         gamma = np.median(dist_mat[dist_mat > 0])
    
     K = np.exp(-0.5*(1/gamma**2)*(dist_mat**2))
+    return K
+
+
+def Matern(X,n_obs,gamma=-1):
+    """
+    Forms the kernel matrix K using the SE-T kernel with bandwidth gamma
+    where T is the identity operator
+    
+    Parameters:
+    X - (n_samples,n_obs) array of samples from the distribution 
+    gamma - bandwidth for the kernel, if -1 then median heuristic is used to pick gamma
+    
+    Returns:
+    K - matrix formed from the kernel values of all pairs of samples from the distributions
+    """
+    sqrt3 = np.sqrt(3.0)
+
+    dist_mat = (1/np.sqrt(n_obs))*pairwise_distances(X, metric='euclidean')
+    if gamma == -1:
+        gamma = np.median(dist_mat[dist_mat > 0])
+    
+    r = np.sqrt(dist_mat)
+    # K = np.exp(-0.5*(1/gamma**2)*(dist_mat**2))
+
+    K = (1.0 + sqrt3 * (1./gamma) * r) * np.exp(-sqrt3 * (1./gamma) * r)
+    
     return K
