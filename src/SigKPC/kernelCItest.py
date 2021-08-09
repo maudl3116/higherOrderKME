@@ -185,10 +185,9 @@ def Matern(X,n_obs,gamma=-1):
     dist_mat = (1/np.sqrt(n_obs))*pairwise_distances(X, metric='euclidean')
     if gamma == -1:
         gamma = np.median(dist_mat[dist_mat > 0])
-    
-    r = np.sqrt(dist_mat)
+        
     # K = np.exp(-0.5*(1/gamma**2)*(dist_mat**2))
 
-    K = (1.0 + sqrt3 * (1./gamma) * r) * np.exp(-sqrt3 * (1./gamma) * r)
+    K = (1.0 + sqrt3 * (1./gamma) * dist_mat) * np.exp(-sqrt3 * (1./gamma) * dist_mat)
     
     return K
