@@ -14,6 +14,13 @@ with open(os.path.join(here, 'higherOrderKME', '__init__.py')) as f:
 with open(os.path.join(here, 'README.md')) as f:
     readme = f.read()
 
+ext_modules = [
+    setuptools.Extension(
+        name="cython_backend",
+        sources=["higherOrderKME/sigkernel/cython_backend.pyx"],
+    )
+]
+
 setuptools.setup(
     name="higherOrderKME",
     version=version,
@@ -34,10 +41,3 @@ setuptools.setup(
         "License :: OSI Approved :: Apache Software License",
     ],
 )
-
-ext_modules = [
-    setuptools.Extension(
-        name="cython_backend",
-        sources=["higherOrderKME/sigkernel/cython_backend.pyx"],
-    )
-]
