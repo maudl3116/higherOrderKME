@@ -155,19 +155,19 @@ class SigKernel():
         """
         return _SigKernelGram.apply(X, Y, self.static_kernel, self.dyadic_order, sym, self._naive_solver, return_sol_grid)
 
-    def compute_HigherOrder_Gram(self, K_XX, K_XY, K_YY, _lambda, sym=False, centered=False):
+    def compute_HigherOrder_Gram(self, K_XX, K_XY, K_YY, lambda_, sym=False, centered=False):
         """Input: 
                   - K_XX: torch tensor of shape (batch_X, batch_X, length_X, length_X),
                   - K_YY: torch tensor of shape (batch_Y, batch_Y, length_Y, length_Y),
                   - K_XX: torch tensor of shape (batch_X, batch_Y, length_X, length_Y),
-                  - _lambda: (float) hyperparameter for the estimator of the conditional KME
+                  - lambda_: (float) hyperparameter for the estimator of the conditional KME
                   - sym: (bool) whether X=Y
                   - centered: (bool) type of estimator for the conditional KME
 
            Output: 
                   - matrix k(X^1[i]_T,Y^1[j]_T) of shape (batch_X, batch_Y)
         """
-        return _SigKernelHigerOrderGram.apply(K_XX, K_XY, K_YY, self.static_kernel_higher_order, self.dyadic_order_higher_order, _lambda, sym, self._naive_solver, centered)
+        return _SigKernelHigerOrderGram.apply(K_XX, K_XY, K_YY, self.static_kernel_higher_order, self.dyadic_order_higher_order, lambda_, sym, self._naive_solver, centered)
 
     def compute_distance(self, X, Y):
         """Input: 
@@ -185,7 +185,7 @@ class SigKernel():
 
         return torch.mean(k_XX) + torch.mean(k_YY) - 2.*torch.mean(k_XY) 
 
-    def compute_mmd(self, X, Y, estimator='b', order=1, _lambda=1., centered=False):
+    def compute_mmd(self, X, Y, estimator='b', order=1, lambda_=1., centered=False):
         """
             Corresponds to Algorithm 3 or 5 in "Higher Order Kernel Mean Embeddings to Capture Filtrations of Stochastic Processes" 
 
@@ -194,7 +194,7 @@ class SigKernel():
                   - Y: torch tensor of shape (batch_Y, length_Y, dim), 
                   - estimator: (string) whether to compute a biased or unbiased estimator
                   - order: (int) the order of the MMD
-                  - _lambda: (float) hyperparameter for the conditional KME estimator (to be specified if order=2)
+                  - lambda_: (float) hyperparameter for the conditional KME estimator (to be specified if order=2)
                   - centered: (bool) whether to use the centered estimator for the conditional KME (to be specified if order=2)
            Output: 
                   - scalar: MMD signature distance between samples X and samples Y
@@ -205,7 +205,7 @@ class SigKernel():
         assert order==1 or order==2, "order>2 have not been implemented yet"
 
         if order==2:
-            return self._compute_higher_order_mmd(X, Y, _lambda=_lambda, estimator=estimator, centered=centered)
+            return self._compute_higher_order_mmd(X, Y, lambda_=lambda_, estimator=estimator, centered=centered)
 
         K_XX = self.compute_Gram(X, X, sym=True)
         K_YY = self.compute_Gram(Y, Y, sym=True)
@@ -219,7 +219,7 @@ class SigKernel():
 
             return K_XX_m + K_YY_m - 2.*torch.mean(K_XY) 
 
-    def _compute_higher_order_mmd(self, X, Y, _lambda, estimator='b', centered=False):
+    def _compute_higher_order_mmd(self, X, Y, lambda_, estimator='b', centered=False):
         """
             Corresponds to Algorithm 5 in "Higher Order Kernel Mean Embeddings to Capture Filtrations of Stochastic Processes" 
         
@@ -227,7 +227,7 @@ class SigKernel():
                   - X: torch tensor of shape (batch_X, length_X, dim),
                   - Y: torch tensor of shape (batch_Y, length_Y, dim)
                   - estimator: (string) whether to compute a biased or unbiased estimator
-                  - _lambda: (float) hyperparameter for the conditional KME estimator (to be specified if order=2)
+                  - lambda_: (float) hyperparameter for the conditional KME estimator (to be specified if order=2)
                   - centered: (bool) whether to use the centered estimator for the conditional KME (to be specified if order=2)
            Output: 
                   - scalar: MMD signature distance between samples X and samples Y
@@ -240,9 +240,9 @@ class SigKernel():
         K_XY_1 = self.compute_Gram(X, Y, sym=False, return_sol_grid=True)  # shape (batch_X, batch_Y, length_X, length_Y)
 
         # Compute Gram matrices rank 1. Ex K_XY_1[i,j]= k( X^1[i], Y^1[j] ) where X^1[i] = t -> E[k(X,.) | F_t](omega_i)
-        K_XX_2 = self.compute_HigherOrder_Gram(K_XX_1, K_XX_1, K_XX_1, _lambda, sym = True, centered = centered)       # shape (batch_X, batch_X)
-        K_YY_2 = self.compute_HigherOrder_Gram(K_YY_1, K_YY_1, K_YY_1, _lambda, sym = True, centered = centered)       # shape (batch_Y, batch_Y)
-        K_XY_2 = self.compute_HigherOrder_Gram(K_XX_1, K_XY_1, K_YY_1, _lambda, sym = False, centered = centered)      # shape (batch_X, batch_Y)
+        K_XX_2 = self.compute_HigherOrder_Gram(K_XX_1, K_XX_1, K_XX_1, lambda_, sym = True, centered = centered)       # shape (batch_X, batch_X)
+        K_YY_2 = self.compute_HigherOrder_Gram(K_YY_1, K_YY_1, K_YY_1, lambda_, sym = True, centered = centered)       # shape (batch_Y, batch_Y)
+        K_XY_2 = self.compute_HigherOrder_Gram(K_XX_1, K_XY_1, K_YY_1, lambda_, sym = False, centered = centered)      # shape (batch_X, batch_Y)
 
         # return K_XX_1, K_YY_1, K_XY_1
         if estimator=='b':
@@ -562,7 +562,7 @@ class _SigKernelGram(torch.autograd.Function):
 class _SigKernelHigerOrderGram(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, K_XX, K_XY, K_YY, static_kernel, dyadic_order, _lambda, sym=False, _naive_solver=False, centered=False):
+    def forward(ctx, K_XX, K_XY, K_YY, static_kernel, dyadic_order, lambda_, sym=False, _naive_solver=False, centered=False):
         '''Corresponds to Algorithm 4 in "Higher Order Kernel Mean Embeddings to Capture Filtrations of Stochastic Processes" '''
 
         A = K_XX.shape[0]
@@ -574,7 +574,7 @@ class _SigKernelHigerOrderGram(torch.autograd.Function):
         NN = (2**dyadic_order)*(N-1)
 
         # computing dsdt k(X^1[i]_s,Y^1[j]_t)
-        G_base = innerprodCKME(K_XX, K_XY, K_YY, _lambda, static_kernel, sym=sym, centered=centered)    # <---- this is the only change compared to order 1
+        G_base = innerprodCKME(K_XX, K_XY, K_YY, lambda_, static_kernel, sym=sym, centered=centered)    # <---- this is the only change compared to order 1
 
         G_base_ = G_base[:,:,1:,1:] + G_base[:,:,:-1,:-1] - G_base[:,:,1:,:-1] - G_base[:,:,:-1,1:] 
         
@@ -618,7 +618,7 @@ class _SigKernelHigerOrderGram(torch.autograd.Function):
 #
 # estimates the inner product between two pathwise conditional kernel mean embeddings (predictive processes)
 # ===========================================================================================================
-def innerprodCKME(K_XX, K_XY, K_YY, _lambda, static_kernel, sym=False, centered=False):
+def innerprodCKME(K_XX, K_XY, K_YY, lambda_, static_kernel, sym=False, centered=False):
     m  = K_XX.shape[0]
     n  = K_YY.shape[0]
     LX = K_XX.shape[2]
