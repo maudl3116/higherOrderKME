@@ -1,9 +1,0 @@
-numpy==1.20.1
-scipy==1.6.2
-imageio==2.9.0
-pymunk==6.0.0
-h5py==2.8.0
-matplotlib==3.3.4
-Pillow==8.2.0
-pyflex==0.1.5
-fbm==0.3.0
