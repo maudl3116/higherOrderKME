@@ -4,7 +4,7 @@ This library provides estimators for the first and second order Maximum Mean Dis
 
 ## Installation
 
-`pip install git+https://github.com/maudl3116/CongSigKME.git` 
+`pip install git+https://github.com/maudl3116/higherOrderKME.git` 
 
 ## Structure of the repository
 
