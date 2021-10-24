@@ -1,14 +1,18 @@
+# Adapted from https://github.com/crispitagorico/sigkernel. Here we add the algorithms to compute the second order MMDs 
+# defined in the paper "Higher Order Kernel Mean Embeddings to Capture Filtrations of Stochastic Processes". 
+
 import numpy as np
 import torch
 import torch.cuda
 from numba import cuda
 
-#from cython_backend import sig_kernel_batch_varpar, sig_kernel_Gram_varpar
+from cython_backend import sig_kernel_batch_varpar, sig_kernel_Gram_varpar
 from .cuda_backend import compute_sig_kernel_batch_varpar_from_increments_cuda, compute_sig_kernel_Gram_mat_varpar_from_increments_cuda
-
 
 # ===========================================================================================================
 # Static kernels
+#
+# We start by defining the kernels we want to sequentialize  
 # ===========================================================================================================
 class LinearKernel():
     """Linear kernel k: R^d x R^d -> R"""
@@ -64,9 +68,8 @@ class RBFKernel():
            Output: 
                   - matrix k(X^i_s,Y^i_t) of shape (batch, length_X, length_Y)
         """
-        A = X.shape[0]
-        M = X.shape[1]
-        N = Y.shape[1]
+        A, M, N = X.shape[0],  X.shape[1], Y.shape[1]
+
         Xs = torch.sum(X**2, dim=2)
         Ys = torch.sum(Y**2, dim=2)
         dist = -2.*torch.bmm(X, Y.permute(0,2,1))
@@ -86,10 +89,8 @@ class RBFKernel():
            Output: 
                   - matrix k(X^i_s,Y^j_t) of shape (batch_X, batch_Y, length_X, length_Y)
         """
-        A = X.shape[0]
-        B = Y.shape[0]
-        M = X.shape[1]
-        N = Y.shape[1]
+        A, B, M, N = X.shape[0], Y.shape[0], X.shape[1], Y.shape[1]
+
         Xs = torch.sum(X**2, dim=2)
         Ys = torch.sum(Y**2, dim=2)
         dist = -2.*torch.einsum('ipk,jqk->ijpq', X, Y)
@@ -98,25 +99,40 @@ class RBFKernel():
         if self.add_time:
             fact = 1./self.add_time
             time_component = (fact*torch.arange(X.shape[1],device=X.device, dtype=X.dtype)[:,None]-fact*torch.arange(Y.shape[1],device=Y.device, dtype=Y.dtype)[None,:])**2
-            dist +=time_component[None,None,:,:]
+            dist += time_component[None,None,:,:]
  
         return torch.exp(-dist/self.sigma)
 # ===========================================================================================================
 
 
 
+
 # ===========================================================================================================
-# Signature Kernel
+# Main Signature Kernel class
+#
+# Now we can sequentialize the static kernels, and provide various functionalities including:
+#
+# * Batch kernel evaluation
+# * Gram matrix computation 
+# * MMD computation
 # ===========================================================================================================
 class SigKernel():
     """Wrapper of the signature kernel k_sig(x,y) = <S(f(x)),S(f(y))> where k(x,y) = <f(x),f(y)> is a given static kernel"""
 
-    def __init__(self,static_kernel, dyadic_order, _naive_solver=False, static_kernel_1=None, dyadic_order_1=None):
-        self.static_kernel = static_kernel
-        self.dyadic_order = dyadic_order
-        self.dyadic_order_1 = dyadic_order_1
+    def __init__(self, static_kernel, dyadic_order, _naive_solver=False):  
+        
+        if isinstance(static_kernel, list):
+            self.static_kernel, self.static_kernel_higher_order = static_kernel[0], static_kernel[1]
+        else:
+            self.static_kernel, self.static_kernel_higher_order = static_kernel, static_kernel
+
+        if isinstance(dyadic_order, list):
+            self.dyadic_order, self.dyadic_order_higher_order = dyadic_order[0], dyadic_order[1]
+        else:
+             self.dyadic_order, self.dyadic_order_higher_order = dyadic_order, dyadic_order
+
         self._naive_solver = _naive_solver
-        self.static_kernel_1 = static_kernel_1
+
 
     def compute_kernel(self, X, Y):
         """Input: 
@@ -131,21 +147,27 @@ class SigKernel():
         """Input: 
                   - X: torch tensor of shape (batch_X, length_X, dim),
                   - Y: torch tensor of shape (batch_Y, length_Y, dim)
+                  - sym: (bool) whether X=Y
+                  - return_sol_grid: (bool) whether to return the full PDE solution,
+                    or the solution at final times
            Output: 
                   - matrix k(X^i_T,Y^j_T) of shape (batch_X, batch_Y)
         """
         return _SigKernelGram.apply(X, Y, self.static_kernel, self.dyadic_order, sym, self._naive_solver, return_sol_grid)
 
-    def compute_Gram_rank_1(self, K_XX, K_XY, K_YY, lambda_, sym=False, inspect=False,centered=False):
+    def compute_HigherOrder_Gram(self, K_XX, K_XY, K_YY, _lambda, sym=False, centered=False):
         """Input: 
                   - K_XX: torch tensor of shape (batch_X, batch_X, length_X, length_X),
                   - K_YY: torch tensor of shape (batch_Y, batch_Y, length_Y, length_Y),
-                  - K_XX: torch tensor of shape (batch_X, batchi
-                  _Y, length_X, length_Y),
+                  - K_XX: torch tensor of shape (batch_X, batch_Y, length_X, length_Y),
+                  - _lambda: (float) hyperparameter for the estimator of the conditional KME
+                  - sym: (bool) whether X=Y
+                  - centered: (bool) type of estimator for the conditional KME
+
            Output: 
                   - matrix k(X^1[i]_T,Y^1[j]_T) of shape (batch_X, batch_Y)
         """
-        return _SigKernelGramRank1.apply(K_XX, K_XY, K_YY, self.static_kernel_1, self.dyadic_order_1, lambda_, sym, self._naive_solver, inspect, centered)
+        return _SigKernelHigerOrderGram.apply(K_XX, K_XY, K_YY, self.static_kernel_higher_order, self.dyadic_order_higher_order, _lambda, sym, self._naive_solver, centered)
 
     def compute_distance(self, X, Y):
         """Input: 
@@ -163,15 +185,27 @@ class SigKernel():
 
         return torch.mean(k_XX) + torch.mean(k_YY) - 2.*torch.mean(k_XY) 
 
-    def compute_mmd(self, X, Y, estimator='b'):
-        """Input: 
+    def compute_mmd(self, X, Y, estimator='b', order=1, _lambda=1., centered=False):
+        """
+            Corresponds to Algorithm 3 or 5 in "Higher Order Kernel Mean Embeddings to Capture Filtrations of Stochastic Processes" 
+
+            Input: 
                   - X: torch tensor of shape (batch_X, length_X, dim),
-                  - Y: torch tensor of shape (batch_Y, length_Y, dim)
+                  - Y: torch tensor of shape (batch_Y, length_Y, dim), 
+                  - estimator: (string) whether to compute a biased or unbiased estimator
+                  - order: (int) the order of the MMD
+                  - _lambda: (float) hyperparameter for the conditional KME estimator (to be specified if order=2)
+                  - centered: (bool) whether to use the centered estimator for the conditional KME (to be specified if order=2)
            Output: 
                   - scalar: MMD signature distance between samples X and samples Y
         """
 
         assert not Y.requires_grad, "the second input should not require grad"
+        assert estimator=='b' or estimator=='ub', "the estimator should be 'b' or 'ub' "
+        assert order==1 or order==2, "order>2 have not been implemented yet"
+
+        if order==2:
+            return self._compute_higher_order_mmd(X, Y, _lambda=_lambda, estimator=estimator, centered=centered)
 
         K_XX = self.compute_Gram(X, X, sym=True)
         K_YY = self.compute_Gram(Y, Y, sym=True)
@@ -185,48 +219,52 @@ class SigKernel():
 
             return K_XX_m + K_YY_m - 2.*torch.mean(K_XY) 
 
-    def compute_mmd_rank_1(self, X, Y, lambda_, estimator='b', inspect=False, centered=False):
-        """Input: 
+    def _compute_higher_order_mmd(self, X, Y, _lambda, estimator='b', centered=False):
+        """
+            Corresponds to Algorithm 5 in "Higher Order Kernel Mean Embeddings to Capture Filtrations of Stochastic Processes" 
+        
+            Input: 
                   - X: torch tensor of shape (batch_X, length_X, dim),
                   - Y: torch tensor of shape (batch_Y, length_Y, dim)
+                  - estimator: (string) whether to compute a biased or unbiased estimator
+                  - _lambda: (float) hyperparameter for the conditional KME estimator (to be specified if order=2)
+                  - centered: (bool) whether to use the centered estimator for the conditional KME (to be specified if order=2)
            Output: 
-                  - scalar: MMD rank-1 signature distance between samples X and samples Y
+                  - scalar: MMD signature distance between samples X and samples Y
         """
         assert not X.requires_grad and not Y.requires_grad, "does not support automatic differentiation yet"
 
         # Compute Gram matrices order 0. Ex K_XY_0[i,j,p,q]= k( X[i,:,:p], Y[j,:, :q])
-        K_XX_0 = self.compute_Gram(X, X, sym=True, return_sol_grid=True)   # shape (batch_X, batch_X, length_X, length_X)
-        K_YY_0 = self.compute_Gram(Y, Y, sym=True, return_sol_grid=True)   # shape (batch_Y, batch_Y, length_Y, length_Y)
-        K_XY_0 = self.compute_Gram(X, Y, sym=False, return_sol_grid=True)  # shape (batch_X, batch_Y, length_X, length_Y)
+        K_XX_1 = self.compute_Gram(X, X, sym=True, return_sol_grid=True)   # shape (batch_X, batch_X, length_X, length_X)
+        K_YY_1 = self.compute_Gram(Y, Y, sym=True, return_sol_grid=True)   # shape (batch_Y, batch_Y, length_Y, length_Y)
+        K_XY_1 = self.compute_Gram(X, Y, sym=False, return_sol_grid=True)  # shape (batch_X, batch_Y, length_X, length_Y)
 
         # Compute Gram matrices rank 1. Ex K_XY_1[i,j]= k( X^1[i], Y^1[j] ) where X^1[i] = t -> E[k(X,.) | F_t](omega_i)
-        K_XX_1 = self.compute_Gram_rank_1(K_XX_0, K_XX_0, K_XX_0, lambda_, sym=True, inspect=inspect,centered=centered)       # shape (batch_X, batch_X)
-        K_YY_1 = self.compute_Gram_rank_1(K_YY_0, K_YY_0, K_YY_0, lambda_, sym=True, inspect=inspect,centered=centered)       # shape (batch_Y, batch_Y)
-        K_XY_1 = self.compute_Gram_rank_1(K_XX_0, K_XY_0, K_YY_0, lambda_, sym=False, inspect=inspect,centered=centered)      # shape (batch_X, batch_Y)
+        K_XX_2 = self.compute_HigherOrder_Gram(K_XX_1, K_XX_1, K_XX_1, _lambda, sym = True, centered = centered)       # shape (batch_X, batch_X)
+        K_YY_2 = self.compute_HigherOrder_Gram(K_YY_1, K_YY_1, K_YY_1, _lambda, sym = True, centered = centered)       # shape (batch_Y, batch_Y)
+        K_XY_2 = self.compute_HigherOrder_Gram(K_XX_1, K_XY_1, K_YY_1, _lambda, sym = False, centered = centered)      # shape (batch_X, batch_Y)
 
-        if inspect:
-            K_XX_1, G_X = K_XX_1[0],  K_XX_1[1]
-            K_YY_1, G_Y = K_YY_1[0],  K_YY_1[1]
-            K_XY_1, G_XY = K_XY_1[0],  K_XY_1[1]
         # return K_XX_1, K_YY_1, K_XY_1
         if estimator=='b':
-            if inspect:
-                return torch.mean(K_XX_1) + torch.mean(K_YY_1) - 2.*torch.mean(K_XY_1), G_X, G_Y, G_XY
-            return torch.mean(K_XX_1) + torch.mean(K_YY_1) - 2.*torch.mean(K_XY_1)
+            return torch.mean(K_XX_2) + torch.mean(K_YY_2) - 2.*torch.mean(K_XY_2)
         else:
-            K_XX_m = (torch.sum(K_XX_1)-torch.sum(torch.diag(K_XX_1)))/(K_XX_1.shape[0]*(K_XX_1.shape[0]-1.))
-            K_YY_m = (torch.sum(K_YY_1)-torch.sum(torch.diag(K_YY_1)))/(K_YY_1.shape[0]*(K_YY_1.shape[0]-1.))
-            if inspect:
-                return K_XX_m + K_YY_m - 2.*torch.mean(K_XY_1), G_X, G_Y, G_XY
-            return K_XX_m + K_YY_m - 2.*torch.mean(K_XY_1) 
+            K_XX_m = (torch.sum(K_XX_2)-torch.sum(torch.diag(K_XX_2)))/(K_XX_2.shape[0]*(K_XX_2.shape[0]-1.))
+            K_YY_m = (torch.sum(K_YY_2)-torch.sum(torch.diag(K_YY_2)))/(K_YY_2.shape[0]*(K_YY_2.shape[0]-1.))
+            return K_XX_m + K_YY_m - 2.*torch.mean(K_XY_2) 
 
-
+# ===========================================================================================================
+# Now let's actually implement the method which computes the signature kernel 
+# for a batch of n pairs paths {(x^i,y^i)}_i=1^{n}
+#
+# Here we also implement the backward pass for faster backpropagation
+# ===========================================================================================================
 class _SigKernel(torch.autograd.Function):
     """Signature kernel k_sig(x,y) = <S(f(x)),S(f(y))> where k(x,y) = <f(x),f(y)> is a given static kernel"""
  
     @staticmethod
     def forward(ctx, X, Y, static_kernel, dyadic_order, _naive_solver=False):
-
+        '''Corresponds to Algorithm 1 in "Higher Order Kernel Mean Embeddings to Capture Filtrations of Stochastic Processes" '''
+        
         A = X.shape[0]
         M = X.shape[1]
         N = Y.shape[1]
@@ -359,12 +397,19 @@ class _SigKernel(torch.autograd.Function):
 
         return grad_output[:,None,None]*grad_points, None, None, None, None
 
+# ===========================================================================================================
+# Now let's actually implement the method which computes the classical (order 1) signature kernel Gram matrix 
+# for n x m pairs paths {(x^i,y^j)}_{i,j=1}^{n,m}
+#
+# Here we also implement the backward pass for faster backpropagation
+# ===========================================================================================================
 
 class _SigKernelGram(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, X, Y, static_kernel, dyadic_order, sym=False, _naive_solver=False, return_sol_grid=False):
-
+        '''Corresponds to Algorithm 2 in "Higher Order Kernel Mean Embeddings to Capture Filtrations of Stochastic Processes" '''
+        
         A = X.shape[0]
         B = Y.shape[0]
         M = X.shape[1]
@@ -508,10 +553,17 @@ class _SigKernelGram(torch.autograd.Function):
             return grad, None, None, None, None, None, None
 
 
-class _SigKernelGramRank1(torch.autograd.Function):
+# ===========================================================================================================
+# Now let's actually implement the method which computes a higher order (order 2) signature kernel Gram matrix 
+# for n x m pairs paths {(x^i,y^j)}_{i,j=1}^{n,m}
+#
+# TODO: implement the backward pass for faster backpropagation
+# ===========================================================================================================
+class _SigKernelHigerOrderGram(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, K_XX, K_XY, K_YY, static_kernel, dyadic_order,lambda_, sym=False, _naive_solver=False,inspect=False,centered=False):
+    def forward(ctx, K_XX, K_XY, K_YY, static_kernel, dyadic_order, _lambda, sym=False, _naive_solver=False, centered=False):
+        '''Corresponds to Algorithm 4 in "Higher Order Kernel Mean Embeddings to Capture Filtrations of Stochastic Processes" '''
 
         A = K_XX.shape[0]
         B = K_YY.shape[0]
@@ -522,7 +574,7 @@ class _SigKernelGramRank1(torch.autograd.Function):
         NN = (2**dyadic_order)*(N-1)
 
         # computing dsdt k(X^1[i]_s,Y^1[j]_t)
-        G_base = innerprodCKME(K_XX, K_XY, K_YY, lambda_, static_kernel, sym=sym,centered=centered)          # <--------------------- this is the only change compared to rank 0
+        G_base = innerprodCKME(K_XX, K_XY, K_YY, _lambda, static_kernel, sym=sym, centered=centered)    # <---- this is the only change compared to order 1
 
         G_base_ = G_base[:,:,1:,1:] + G_base[:,:,:-1,:-1] - G_base[:,:,1:,:-1] - G_base[:,:,:-1,1:] 
         
@@ -551,10 +603,8 @@ class _SigKernelGramRank1(torch.autograd.Function):
 
         else:
             G = torch.tensor(sig_kernel_Gram_varpar(G_base_.detach().numpy(), sym, _naive_solver), dtype=G_base.dtype, device=G_base.device)
-        if inspect:
-            return G[:,:,-1,-1], G_base
+
         return G[:,:,-1,-1]
-        # return G_base_ 
 
 
     @staticmethod
@@ -563,29 +613,12 @@ class _SigKernelGramRank1(torch.autograd.Function):
 
 # ===========================================================================================================
 
-
-
 # ===========================================================================================================
-# Various utility functions
+# Algorithm 6 in the paper "Higher Order Kernel Mean Embeddings to Capture Filtrations of Stochastic Processes"
+#
+# estimates the inner product between two pathwise conditional kernel mean embeddings (predictive processes)
 # ===========================================================================================================
-def flip(x, dim):
-    xsize = x.size()
-    dim = x.dim() + dim if dim < 0 else dim
-    x = x.view(-1, *xsize[dim:])
-    x = x.view(x.size(0), x.size(1), -1)[:, getattr(torch.arange(x.size(1)-1, -1, -1), ('cpu','cuda')[x.is_cuda])().long(), :]
-    return x.view(xsize)
-# ===========================================================================================================
-def tile(a, dim, n_tile):
-    init_dim = a.size(dim)
-    repeat_idx = [1] * a.dim()
-    repeat_idx[dim] = n_tile
-    a = a.repeat(*(repeat_idx))
-    order_index = torch.LongTensor(np.concatenate([init_dim * np.arange(n_tile) + i for i in range(init_dim)])).to(a.device)
-    return torch.index_select(a, dim, order_index)
-# ===========================================================================================================
-# innerprodCKME with torch.cholesky_inverse
-# ===========================================================================================================
-def innerprodCKME(K_XX, K_XY, K_YY, lambda_, static_kernel, sym=False, centered=False):
+def innerprodCKME(K_XX, K_XY, K_YY, _lambda, static_kernel, sym=False, centered=False):
     m  = K_XX.shape[0]
     n  = K_YY.shape[0]
     LX = K_XX.shape[2]
@@ -661,146 +694,22 @@ def innerprodCKME(K_XX, K_XY, K_YY, lambda_, static_kernel, sym=False, centered=
     return G
 # ===========================================================================================================
 
-# ===========================================================================================================
-# Hypothesis test functionality
-# ===========================================================================================================
-def c_alpha(m, alpha):
-    return 4. * np.sqrt(-np.log(alpha) / m)
-
-def hypothesis_test(y_pred, y_test, static_kernel, confidence_level=0.99, dyadic_order=0, mmd_order=0,lambda_=0):
-    """Statistical test based on MMD distance to determine if 
-       two sets of paths come from the same distribution.
-    """
-
-    k_sig = SigKernel(static_kernel, dyadic_order)
-
-    m = max(y_pred.shape[0], y_test.shape[0])
-    
-    if mmd_order == 0:
-        TU = k_sig.compute_mmd(y_pred,y_test)  
-    else:
-        TU = k_sig.compute_mmd_rank_1(y_pred, y_test, lambda_)  
-  
-    c = torch.tensor(c_alpha(m, confidence_level), dtype=y_pred.dtype)
-
-    if TU > c:
-        print(f'Hypothesis rejected: distribution are not equal with {confidence_level*100}% confidence')
-    else:
-        print(f'Hypothesis accepted: distribution are equal with {confidence_level*100}% confidence')
-# ===========================================================================================================
-
-
-
-
-
-
-
 
 # ===========================================================================================================
-# Deprecated implementation (just for testing)
+# Various utility functions
 # ===========================================================================================================
-def SigKernel_naive(X, Y, static_kernel, dyadic_order=0, _naive_solver=False):
-
-    A = len(X)
-    M = X[0].shape[0]
-    N = Y[0].shape[0]
-
-    MM = (2**dyadic_order)*(M-1)
-    NN = (2**dyadic_order)*(N-1)
-
-    K_XY = torch.zeros((A, MM+1, NN+1), dtype=X.dtype, device=X.device)
-    K_XY[:, 0, :] = 1.
-    K_XY[:, :, 0] = 1.
-
-    # computing dsdt k(X^i_s,Y^i_t)
-    G_static = static_kernel.batch_kernel(X,Y)
-    G_static = G_static[:,1:,1:] + G_static[:,:-1,:-1] - G_static[:,1:,:-1] - G_static[:,:-1,1:] 
-    G_static = tile(tile(G_static,1,2**dyadic_order)/float(2**dyadic_order),2,2**dyadic_order)/float(2**dyadic_order)
-
-    for i in range(MM):
-        for j in range(NN):
-
-            increment = G_static[:,i,j].clone()
-
-            k_10 = K_XY[:, i + 1, j].clone()
-            k_01 = K_XY[:, i, j + 1].clone()
-            k_00 = K_XY[:, i, j].clone()
-
-            if _naive_solver:
-                K_XY[:, i + 1, j + 1] = k_10 + k_01 + k_00*(increment-1.)
-            else:
-                K_XY[:, i + 1, j + 1] = (k_10 + k_01)*(1.+0.5*increment+(1./12)*increment**2) - k_00*(1.-(1./12)*increment**2)
-                #K_XY[:, i + 1, j + 1] = k_01 + k_10 - k_00 + (torch.exp(0.5*increment) - 1.)*(k_01 + k_10)
-            
-    return K_XY[:, -1, -1]
-
-
-class SigLoss_naive(torch.nn.Module):
-
-    def __init__(self, static_kernel, dyadic_order=0, _naive_solver=False):
-        super(SigLoss_naive, self).__init__()
-        self.static_kernel = static_kernel
-        self.dyadic_order = dyadic_order
-        self._naive_solver = _naive_solver
-
-    def forward(self,X,Y):
-
-        k_XX = SigKernel_naive(X,X,self.static_kernel,self.dyadic_order,self._naive_solver)
-        k_YY = SigKernel_naive(Y,Y,self.static_kernel,self.dyadic_order,self._naive_solver)
-        k_XY = SigKernel_naive(X,Y,self.static_kernel,self.dyadic_order,self._naive_solver)
-
-        return torch.mean(k_XX) + torch.mean(k_YY) - 2.*torch.mean(k_XY)
-
-
-def SigKernelGramMat_naive(X,Y,static_kernel,dyadic_order=0,_naive_solver=False):
-
-    A = len(X)
-    B = len(Y)
-    M = X[0].shape[0]
-    N = Y[0].shape[0]
-
-    MM = (2**dyadic_order)*(M-1)
-    NN = (2**dyadic_order)*(N-1)
-
-    K_XY = torch.zeros((A,B, MM+1, NN+1), dtype=X.dtype, device=X.device)
-    K_XY[:,:, 0, :] = 1.
-    K_XY[:,:, :, 0] = 1.
-
-    # computing dsdt k(X^i_s,Y^j_t)
-    G_static = static_kernel.Gram_matrix(X,Y)
-    G_static = G_static[:,:,1:,1:] + G_static[:,:,:-1,:-1] - G_static[:,:,1:,:-1] - G_static[:,:,:-1,1:] 
-    G_static = tile(tile(G_static,2,2**dyadic_order)/float(2**dyadic_order),3,2**dyadic_order)/float(2**dyadic_order)
-
-    for i in range(MM):
-        for j in range(NN):
-
-            increment = G_static[:,:,i,j].clone()
-
-            k_10 = K_XY[:, :, i + 1, j].clone()
-            k_01 = K_XY[:, :, i, j + 1].clone()
-            k_00 = K_XY[:, :, i, j].clone()
-
-            if _naive_solver:
-                K_XY[:, :, i + 1, j + 1] = k_10 + k_01 + k_00*(increment-1.)
-            else:
-                K_XY[:, :, i + 1, j + 1] = (k_10 + k_01)*(1.+0.5*increment+(1./12)*increment**2) - k_00*(1.-(1./12)*increment**2)
-                #K_XY[:, :, i + 1, j + 1] = k_01 + k_10 - k_00 + (torch.exp(0.5*increment) - 1.)*(k_01 + k_10)
-
-    return K_XY[:,:, -1, -1]
-
-
-class SigMMD_naive(torch.nn.Module):
-
-    def __init__(self, static_kernel, dyadic_order=0, _naive_solver=False):
-        super(SigMMD_naive, self).__init__()
-        self.static_kernel = static_kernel
-        self.dyadic_order = dyadic_order
-        self._naive_solver = _naive_solver
-
-    def forward(self, X, Y):
-
-        K_XX = SigKernelGramMat_naive(X,X,self.static_kernel,self.dyadic_order,self._naive_solver)
-        K_YY = SigKernelGramMat_naive(Y,Y,self.static_kernel,self.dyadic_order,self._naive_solver)  
-        K_XY = SigKernelGramMat_naive(X,Y,self.static_kernel,self.dyadic_order,self._naive_solver)
-        
-        return torch.mean(K_XX) + torch.mean(K_YY) - 2.*torch.mean(K_XY) 
+def flip(x, dim):
+    xsize = x.size()
+    dim = x.dim() + dim if dim < 0 else dim
+    x = x.view(-1, *xsize[dim:])
+    x = x.view(x.size(0), x.size(1), -1)[:, getattr(torch.arange(x.size(1)-1, -1, -1), ('cpu','cuda')[x.is_cuda])().long(), :]
+    return x.view(xsize)
+# ===========================================================================================================
+def tile(a, dim, n_tile):
+    init_dim = a.size(dim)
+    repeat_idx = [1] * a.dim()
+    repeat_idx[dim] = n_tile
+    a = a.repeat(*(repeat_idx))
+    order_index = torch.LongTensor(np.concatenate([init_dim * np.arange(n_tile) + i for i in range(init_dim)])).to(a.device)
+    return torch.index_select(a, dim, order_index)
+# ===========================================================================================================
