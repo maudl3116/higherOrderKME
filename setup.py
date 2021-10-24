@@ -38,6 +38,6 @@ setuptools.setup(
 ext_modules = [
     setuptools.Extension(
         name="cython_backend",
-        sources=["src/sigkernel/cython_backend.pyx"],
+        sources=["higherOrderKME/sigkernel/cython_backend.pyx"],
     )
 ]
