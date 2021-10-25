@@ -10,8 +10,9 @@ This library provides estimators for the first and second order Maximum Mean Dis
 
 - The `higherOrderKME` folder contains the implementation of the higher order MMDs (sigkernel.py) and higher order distribution regression algorithms (KES.py)
 - The `examples` folder contains notebooks to perform two-sample tests, higher order distribution regression and causal graph discovery for stochastic processes.  
-- The `n_vcn_utils` folder contains various utilies for the multibody interaction experiment (adapted from https://github.com/pairlab/v-cdn)
-- The `option_utils` folder contains various utilies for the optimal stopping time experiment (adapted from https://github.com/HeKrRuTe/OptStopRandNN)
+- The `data` folder contains the data generators used for the experiments in the [paper](https://arxiv.org/pdf/2109.03582.pdf): 
+  - `n_vcn_utils` folder contains various utilies for the multibody interaction experiment (adapted from https://github.com/pairlab/v-cdn)
+  - The `option_utils` folder contains various utilies for the optimal stopping time experiment (adapted from https://github.com/HeKrRuTe/OptStopRandNN)
 
 ## How to use the library
 
