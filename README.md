@@ -44,20 +44,6 @@ mmd_order1 = signature_kernel.compute_mmd(x, y, order=1)
 mmd_order2 = signature_kernel.compute_mmd(x, y, lambda_=lambda_, order=2)
 ```
 
-## Examples for the [paper](https://arxiv.org/pdf/2109.03582.pdf)
-
-#### Hypothesis testing on filtrations
-
-The `examples` folder contains a notebook to perform a filtration sensitve two-sample test. This notebook can be directly run on Google colab. We recommend running the notebook on a GPU device for faster computations.
-
-#### Applications of higher order distribution regression to quantitative finance
-
-Coming soon...
-
-#### Inferring causal graph for interacting bodies
-
-Coming soon...
-
 ## Citation
 
 ```bibtex
