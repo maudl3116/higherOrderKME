@@ -1,7 +1,7 @@
 import numpy as np
 from tqdm import tqdm as tqdm
 from tqdm import trange as trange
-from sklearn_transformers import AddTime, LeadLag
+from .sklearn_transformers import AddTime, LeadLag
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import mean_squared_error

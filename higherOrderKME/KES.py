@@ -10,7 +10,7 @@ from sklearn.kernel_ridge import KernelRidge
 from sklearn.pipeline import Pipeline
 from sklearn.base import BaseEstimator, TransformerMixin
 from higherOrderKME import sigkernel
-from sklearn_transformers import AddTime, LeadLag
+from .sklearn_transformers import AddTime, LeadLag
 
 def model(X, y, order=1, alphas1=[0.5], alphas2=[0.5], lambdas=[0.1], dyadic_order=[1, 1], ll=None, at=False, mode='krr', num_trials=1, cv=3, grid={}):
     """Performs a kernel based distribution classification on ensembles (of possibly unequal cardinality)
