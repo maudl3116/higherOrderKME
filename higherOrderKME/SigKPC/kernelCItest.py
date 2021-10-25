@@ -1,7 +1,7 @@
 
 import numpy as np
 import torch 
-import sigkernel
+from higherOrderKME import sigkernel
 from sklearn.metrics import pairwise_distances
 
 def hsicclust( X, Y, Z, p=0, numCluster=10, eps=0.1, dyadic_order=0, static='rbf', sigma=1.):
