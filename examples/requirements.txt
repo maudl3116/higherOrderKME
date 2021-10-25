@@ -1,0 +1,6 @@
+imageio==2.9.0
+pymunk==6.0.0
+h5py==2.8.0
+Pillow==8.2.0
+pyflex==0.1.5
+fbm==0.3.0
