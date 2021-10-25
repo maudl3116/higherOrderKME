@@ -17,7 +17,6 @@ This library provides estimators for the first and second order Maximum Mean Dis
 
 ```python
 import torch
-import higherOrderKME 
 from higherOrderKME import sigkernel
 
 # Specify the static kernel (for linear kernel use sigkernel.LinearKernel())
@@ -38,8 +37,37 @@ x = torch.rand((batch,len_x,dim), dtype=torch.float64, device='cuda') # shape (b
 y = torch.rand((batch,len_y,dim), dtype=torch.float64, device='cuda') # shape (batch,len_y,dim)
 
 # Compute the (classical) first order MMD distance between samples x ~ P and samples y ~ Q, where P,Q are two distributions on path space
-mmd_order1 = signature_kernel.compute_mmd(x,y,order=1)
+mmd_order1 = signature_kernel.compute_mmd(x, y, order=1)
 
 # Compute the second order MMD distance between samples x ~ P and samples y ~ Q, where P,Q are two distributions on path space
-mmd_order2 = signature_kernel.compute_mmd(x,y,lambda_=lambda_,order=2)
+mmd_order2 = signature_kernel.compute_mmd(x, y, lambda_=lambda_, order=2)
 ```
+
+## Examples for the [paper](https://arxiv.org/pdf/2109.03582.pdf)
+
+#### Hypothesis testing on filtrations
+
+The `examples` folder contains a notebook to perform a filtration sensitve two-sample test. This notebook can be directly run on Google colab. We recommend running the notebook on a GPU device for faster computations.
+
+#### Applications of higher order distribution regression to quantitative finance
+
+Coming soon...
+
+#### Inferring causal graph for interacting bodies
+
+Coming soon...
+
+## Citation
+
+```bibtex
+@article{salvi2021higher,
+  title={Higher Order Kernel Mean Embeddings to Capture Filtrations of Stochastic Processes},
+  author={Salvi, Cristopher and Lemercier, Maud and Liu, Chong and Hovarth, Blanka and Damoulas, Theodoros and Lyons, Terry},
+  journal={arXiv preprint arXiv:2109.03582},
+  year={2021}
+}
+```
+
+<!-- 
+-->
+
