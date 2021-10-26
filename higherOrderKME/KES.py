@@ -12,7 +12,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from higherOrderKME import sigkernel
 from .sklearn_transformers import AddTime, LeadLag
 
-def model(X, y, order=1, alphas1=[0.5], alphas2=[0.5], lambdas=[0.1], dyadic_order=[1, 1], ll=None, at=False, mode='krr', num_trials=1, cv=3, grid={}):
+def model(X, y, order=1, alphas1=[0.5], alphas2=[0.5], lambdas=[0.1], dyadic_order=[1, 1], static='rbf', ll=None, at=False, mode='krr', num_trials=1, cv=3, grid={}):
     """Performs a kernel based distribution classification on ensembles (of possibly unequal cardinality)
        of univariate or multivariate time-series (of possibly unequal lengths)
        We use the RBF embedding throughout. 
@@ -27,6 +27,7 @@ def model(X, y, order=1, alphas1=[0.5], alphas2=[0.5], lambdas=[0.1], dyadic_ord
               alphas2 (list of floats): RBF kernel scaling parameter to cross-validate for order 2
               lambdas (list of floats): conditional signature mean embedding regularizer to cross-validate for order 2 
               dyadic_order (list of int): dyadic order of PDE solvers
+              static (str): the type of kernel to sequentialize
               ll (list of ints): dimensions to lag (set to None by default)
               at (bool): if True pre-process the input path with add-time
               mode (str): "krr" -> Kernel Ridge Regression, 'svr' -> Support Vector Regresion
@@ -40,6 +41,9 @@ def model(X, y, order=1, alphas1=[0.5], alphas2=[0.5], lambdas=[0.1], dyadic_ord
 
     assert mode in ['svr', 'krr'], "mode must be either 'svr' or 'krr' "
     assert order in [1,2], "orders bigger than 2 have not been implemented yet"
+    assert static in ['rbf','linear'], "only RBF and Linear kernels have been implemented"
+    if static == 'linear':
+        assert len(alphas1) == 1 and len(alphas2) == 1, "no need to specify multiple alpha hyperparameters for a linear kernel on the state space"
 
     # possibly augment the state space of the time series
     if ll is not None:
@@ -86,7 +90,10 @@ def model(X, y, order=1, alphas1=[0.5], alphas2=[0.5], lambdas=[0.1], dyadic_ord
 
         mmd = np.zeros((len(X), len(X)))
 
-        static_kernel = [sigkernel.RBFKernel(sigma=scale1, add_time=X[0][0].shape[0]-1), sigkernel.RBFKernel(sigma=scale2, add_time=X[0][0].shape[0]-1)]
+        if static=='rbf':
+            static_kernel = [sigkernel.RBFKernel(sigma=scale1, add_time=X[0][0].shape[0]-1), sigkernel.RBFKernel(sigma=scale2, add_time=X[0][0].shape[0]-1)]
+        else:
+            static_kernel = [sigkernel.LinearKernel(add_time=X[0][0].shape[0]-1), sigkernel.LinearKernel(add_time=X[0][0].shape[0]-1)]
         signature_kernel = sigkernel.SigKernel(static_kernel, dyadic_order)
 
         for i in trange(len(X)):
