@@ -12,6 +12,13 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from higherOrderKME import sigkernel
 from .sklearn_transformers import AddTime, LeadLag
 
+
+# ===========================================================================================================
+# Implementation of the 1st and 2nd order DR algorithms from the paper 
+# Higher Order Kernel Mean Embeddings to Capture Filtrations of Stochastic Processes
+# 
+# ===========================================================================================================
+
 def model(X, y, order=1, alphas1=[0.5], alphas2=[0.5], lambdas=[0.1], dyadic_order=[1, 1], static='rbf', ll=None, at=False, mode='krr', num_trials=1, cv=3, grid={}):
     """Performs a kernel based distribution classification on ensembles (of possibly unequal cardinality)
        of univariate or multivariate time-series (of possibly unequal lengths)
@@ -26,7 +33,7 @@ def model(X, y, order=1, alphas1=[0.5], alphas2=[0.5], lambdas=[0.1], dyadic_ord
               alphas1 (list of floats): RBF kernel scaling parameter to cross-validate for order 1
               alphas2 (list of floats): RBF kernel scaling parameter to cross-validate for order 2
               lambdas (list of floats): conditional signature mean embedding regularizer to cross-validate for order 2 
-              dyadic_order (list of int): dyadic order of PDE solvers
+              dyadic_order (2-tuple of int): dyadic orders of the PDE solvers
               static (str): the type of kernel to sequentialize
               ll (list of ints): dimensions to lag (set to None by default)
               at (bool): if True pre-process the input path with add-time
