@@ -8,7 +8,7 @@ This library provides estimators for the first and second order Maximum Mean Dis
 
 ## Structure of the repository
 
-- The `higherOrderKME` folder contains the implementation of the higher order MMDs (sigkernel.py) and higher order distribution regression algorithms (KES.py)
+- The `higherOrderKME` folder contains the implementation of the higher order MMDs (see sigkernel.py) and higher order distribution regression algorithms (see KES.py)
 - The `examples` folder contains notebooks to perform two-sample tests, higher order distribution regression and causal graph discovery for stochastic processes.  
 - The `data` folder contains the data generators used for the experiments in the [paper](https://arxiv.org/pdf/2109.03582.pdf): 
   - `n_vcn_utils` folder contains various utilies for the multibody interaction experiment (adapted from https://github.com/pairlab/v-cdn)
@@ -33,9 +33,9 @@ lambda_ = 1e-5
 signature_kernel = sigkernel.SigKernel(static_kernel, dyadic_order)
 
 # Synthetic data
-batch, len_x, len_y, dim = 5, 10, 20, 2
-x = torch.rand((batch,len_x,dim), dtype=torch.float64, device='cuda') # shape (batch,len_x,dim)
-y = torch.rand((batch,len_y,dim), dtype=torch.float64, device='cuda') # shape (batch,len_y,dim)
+n, len_x, len_y, dim = 100, 10, 20, 2
+x = torch.rand((n,len_x,dim), dtype=torch.float64, device='cuda') # shape (batch,len_x,dim)
+y = torch.rand((n,len_y,dim), dtype=torch.float64, device='cuda') # shape (batch,len_y,dim)
 
 # Compute the (classical) first order MMD distance between samples x ~ P and samples y ~ Q, where P,Q are two distributions on path space
 mmd_order1 = signature_kernel.compute_mmd(x, y, order=1)
